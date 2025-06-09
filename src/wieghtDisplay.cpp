@@ -11,6 +11,9 @@ void handleWeightDisplayState() {
 
 void displayRFIDData(float weight) {
     u8g2.clearBuffer();
+
+    weight_in = weight;
+    weight_out = weight;
     
     // Header
     u8g2.setFont(u8g2_font_5x7_tr);

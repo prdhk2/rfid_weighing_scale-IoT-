@@ -99,8 +99,9 @@ void setup() {
 }
 
 void loop() {
-
     handleWiFi();
+    handleTimeAdjustment();
+
     unsigned long now = millis();
     static unsigned long lastLoopTime = 0;
     if (now - lastLoopTime >= LOOP_INTERVAL_MS) {

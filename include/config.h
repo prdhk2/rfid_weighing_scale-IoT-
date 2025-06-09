@@ -33,9 +33,9 @@ extern U8G2_ST7920_128X64_F_SW_SPI u8g2;
 #define RTC_SCL 9
 #pragma once
 
-constexpr int TIMEZONE_OFFSET_HOURS = 4;
-constexpr int TIME_ADJUST_MINUTES = 6;
-constexpr int TIME_ADJUST_SECONDS = 23; 
+constexpr int TIMEZONE_OFFSET_HOURS = 0;
+constexpr int TIME_ADJUST_MINUTES = 0;
+constexpr int TIME_ADJUST_SECONDS = 0; 
 
 extern MFRC522 mfrc522;
 extern MFRC522::MIFARE_Key key;
@@ -121,6 +121,8 @@ void handleMenu();
 void loadingDisplay();
 
 void HomeDisplay();
+
+void handleTimeAdjustment();
 
 void handleHomeState();
 

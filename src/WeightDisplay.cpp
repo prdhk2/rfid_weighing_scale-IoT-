@@ -78,15 +78,19 @@ void displayRFIDData(float weight) {
     u8g2.drawStr(105, 49, strKg);
 
     // Buttons
-    u8g2.setDrawColor(1);
-    u8g2.drawBox(0, 56, 38, 8);
-    u8g2.setDrawColor(0);
-    u8g2.drawStr(6, 63, strMasuk);
 
-    u8g2.setDrawColor(1);
-    u8g2.drawBox(88, 56, 40, 8);
-    u8g2.setDrawColor(0);
-    u8g2.drawStr(94, 63, strKeluar);
+    if (rs485Data.slave_id == "1") {
+        u8g2.setDrawColor(1);
+        u8g2.drawBox(0, 56, 38, 8);
+        u8g2.setDrawColor(0);
+        u8g2.drawStr(6, 63, strMasuk);
+    } else if (rs485Data.slave_id == "2") {
+        u8g2.setDrawColor(1);
+        u8g2.drawBox(88, 56, 40, 8);
+        u8g2.setDrawColor(0);
+        u8g2.drawStr(94, 63, strKeluar);
+    }
+
 
     u8g2.sendBuffer();
 }
@@ -163,7 +167,7 @@ bool checkSendInButton() {
     }
 
     if ((millis() - lastDebounceTime) > 50) { // debounce 50ms
-        if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData) {
+        if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData && rs485Data.slave_id == "1") {
             // Tombol baru saja ditekan
             Serial.println("Tombol 'Masuk' ditekan, mengirim data IN...");
             sendingData = true;
@@ -198,7 +202,7 @@ bool checkSendOutButton() {
     }
 
     if ((millis() - lastDebounceTime) > 50) {
-        if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData) {
+        if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData && rs485Data.slave_id == "2") {
             Serial.println("Tombol 'Keluar' ditekan, mengirim data OUT...");
             sendingData = true;
 

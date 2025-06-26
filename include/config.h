@@ -42,6 +42,7 @@ extern int lastButtonPressed;
 
 // Struktur Data
 struct RS485Data {
+  String slave_id;
   int id_driver = 0;
   String nama_driver;
   int id_customer = 0;

@@ -1,10 +1,9 @@
 #include "config.h"
 
-const char *ssid = "Biodigester2025";
-const char *password = "z3r0w4sTe###";
+const char *ssid = "zxckoiii";
+const char *password = "z3r0w4sTexyz";
 
 unsigned long wifiCheckMillis = 0;
-bool wifiConnecting = false;
 bool wifiConnected = false;
 
 #define WIFI_RETRY_INTERVAL 10000
@@ -13,35 +12,38 @@ void setupWiFi() {
     Serial.println("Starting WiFi...");
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
+    // Gunakan power default terlebih dahulu (20.5dBm)
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
-    WiFi.begin(ssid, password, 6);
-    wifiConnecting = true;
+    WiFi.begin(ssid, password);
+    wifiCheckMillis = millis();
 }
 
 void handleWiFi() {
     unsigned long now = millis();
 
-    if (WiFi.status() == WL_CONNECTED) {
-        if (!wifiConnected) {
+    wl_status_t status = WiFi.status();
+
+    // Jika terkoneksi tapi sebelumnya dianggap tidak
+    if (status == WL_CONNECTED && !wifiConnected) {
         wifiConnected = true;
-        wifiConnecting = false;
         Serial.print("WiFi Connected: ");
         Serial.println(WiFi.localIP());
-        }
-        return;
     }
 
-    if (!wifiConnected && !wifiConnecting && (now - wifiCheckMillis > WIFI_RETRY_INTERVAL)) {
-        Serial.println("Not connected. Trying WiFi.begin()...");
-        WiFi.setTxPower(WIFI_POWER_19_5dBm);
-        WiFi.begin(ssid, password, 6);
-        wifiConnecting = true;
+    // Jika terputus
+    if (status != WL_CONNECTED && wifiConnected) {
+        wifiConnected = false;
+        Serial.println("WiFi lost connection!");
+        WiFi.disconnect(true); // Putuskan total
+        delay(100);
+        WiFi.begin(ssid, password); // Coba sambung lagi
         wifiCheckMillis = now;
-        return;
     }
 
-    if (wifiConnecting && WiFi.status() != WL_CONNECTED && (now - wifiCheckMillis > WIFI_RETRY_INTERVAL)) {
-        Serial.println("WiFi still not connected...");
-        wifiConnecting = false;
+    // Jika tidak konek dan cukup waktu berlalu
+    if (!wifiConnected && (now - wifiCheckMillis >= WIFI_RETRY_INTERVAL)) {
+        Serial.println("Retrying WiFi connection...");
+        WiFi.begin(ssid, password);
+        wifiCheckMillis = now;
     }
 }

@@ -124,6 +124,7 @@ void handleErrorState() {
 }
 
 void resetRFIDData(bool resetHardware) {
+    rs485Data.slave_id = "";
     rs485Data.id_driver = 0;
     rs485Data.nama_driver = "";
     rs485Data.id_customer = 0;
@@ -137,42 +138,37 @@ void resetRFIDData(bool resetHardware) {
     }
 }
 
-void parseRS485Data(const String &data) {  // Gunakan const reference
-    // Pastikan data memiliki format yang benar
-    if (data.length() < 10) {  // Nilai minimal yang masuk akal
+void parseRS485Data(const String &data) {
+    // Contoh format: "1,1023,Budi,301,AB1234CD,IndahLog"
+    int idx1 = data.indexOf(',');
+    int idx2 = data.indexOf(',', idx1 + 1);
+    int idx3 = data.indexOf(',', idx2 + 1);
+    int idx4 = data.indexOf(',', idx3 + 1);
+    int idx5 = data.indexOf(',', idx4 + 1);
+
+    if (idx1 == -1 || idx2 == -1 || idx3 == -1 || idx4 == -1 || idx5 == -1) {
         lastError = ErrorCode::RFID_FORMAT;
         currentState = SystemState::ERROR;
         return;
     }
 
-    int parts[4];
-    parts[0] = data.indexOf(',');
-    
-    for (int i = 1; i < 4; i++) {
-        parts[i] = data.indexOf(',', parts[i-1] + 1);
-        if (parts[i] == -1) {
-            lastError = ErrorCode::RFID_FORMAT;
-            currentState = SystemState::ERROR;
-            return;
-        }
-    }
+    int slave_id = data.substring(0, idx1).toInt();
+    int id_driver = data.substring(idx1 + 1, idx2).toInt();
+    String nama_driver = data.substring(idx2 + 1, idx3);
+    int id_customer = data.substring(idx3 + 1, idx4).toInt();
+    String no_polisi = data.substring(idx4 + 1, idx5);
+    String nama_customer = data.substring(idx5 + 1);
 
-    // Gunakan temporary variables untuk menghindari masalah memori
-    int temp_id_driver = data.substring(0, parts[0]).toInt();
-    String temp_nama_driver = data.substring(parts[0]+1, parts[1]);
-    int temp_id_customer = data.substring(parts[1]+1, parts[2]).toInt();
-    String temp_no_polisi = data.substring(parts[2]+1, parts[3]);
-    String temp_nama_customer = data.substring(parts[3]+1);
-
-    // Assign ke struct setelah semua parsing selesai
-    rs485Data.id_driver = temp_id_driver;
-    rs485Data.nama_driver = temp_nama_driver;
-    rs485Data.id_customer = temp_id_customer;
-    rs485Data.no_polisi = temp_no_polisi;
-    rs485Data.nama_customer = temp_nama_customer;
+    rs485Data.slave_id = slave_id;
+    rs485Data.id_driver = id_driver;
+    rs485Data.nama_driver = nama_driver;
+    rs485Data.id_customer = id_customer;
+    rs485Data.no_polisi = no_polisi;
+    rs485Data.nama_customer = nama_customer;
     rs485Data.hasData = true;
-    
+
     Serial.println("Data RFID diterima:");
+    Serial.println("Slave ID: " + String(rs485Data.slave_id));
     Serial.println("Driver: " + rs485Data.nama_driver);
     Serial.println("No Pol: " + rs485Data.no_polisi);
 }

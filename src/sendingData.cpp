@@ -52,7 +52,7 @@ int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in) 
     return httpResponseCode;
 }
 
-int sendDataOut(float weight_out, String time_out) {
+int sendDataOut(int id_driver, int id_customer, float weight_out, String time_out) {
     if (WiFi.status() != WL_CONNECTED) {
         Serial.printf("WiFi status: %d, RSSI: %d\n", WiFi.status(), WiFi.RSSI());
         return -99;
@@ -67,6 +67,8 @@ int sendDataOut(float weight_out, String time_out) {
     http.addHeader("Content-Type", "application/json");
 
     String jsonData = "{";
+    jsonData += "\"driver_id\":" + String(id_driver) + ",";
+    jsonData += "\"customer_id\":" + String(id_customer) + ",";
     jsonData += "\"weight_out\":" + String(weight_out, 2) + ",";
     jsonData += "\"time_out\":\"" + time_out + "\"";
     jsonData += "}";

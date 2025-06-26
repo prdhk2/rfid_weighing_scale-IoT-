@@ -1,18 +1,19 @@
+#include "config.h"
 #include "readWeight.h"
 #include "extractNumericPart.h"
 
 float readWeight() {
     static String buffer = "";
 
-    while (Serial2.available()) {
-        char c = Serial2.read();
+    while (rs232Serial.available()) {
+        char c = rs232Serial.read();
         if (c == '\n') { // Akhir data dari timbangan
             String numericPart = extractNumericPart(buffer);
-            buffer = "";  // Reset setelah membaca
+            buffer = "";  // Reset
             if (numericPart.length() > 0) {
                 return numericPart.toFloat();
             } else {
-                return NAN;  // Data tidak valid
+                return NAN;
             }
         } 
         else if (buffer.length() < 20) { // Hindari buffer overflow
@@ -22,5 +23,5 @@ float readWeight() {
             buffer = ""; // Reset jika terlalu panjang
         }
     }
-    return lastWeight;  // Gunakan berat terakhir jika tidak ada data baru
+    return lastWeight;
 }

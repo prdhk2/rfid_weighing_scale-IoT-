@@ -2,69 +2,87 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
-#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
-#include <SPI.h>
-#include <MFRC522.h>
 #include <U8g2lib.h>
 #include <Wire.h>
 #include "RTClib.h"
-#include "extractNumericPart.h"
-#include "readWeight.h"
 #include "esp_task_wdt.h"
+#include <atomic>
+// rs485
+#define DE_RE_PIN 35
+#define RS485_RX_PIN 44
 
-// LCD ST7920 128x64 setup
-extern U8G2_ST7920_128X64_F_SW_SPI u8g2;
+// rs232
+#define WEIGHT_RX_PIN 18
 
-// RFID setup
-#define RST_PIN  16
-#define SS_PIN   10
-
-// Button pins
-#define OUT_BUTTON 4
-#define IN_BUTTON 2
-#define RESET_BUTTON 17
-
-// Pin RTC
+// rtc
 #define RTC_SDA 8
 #define RTC_SCL 9
-#pragma once
+
+// bttons
+#define OUT_BUTTON 4
+#define IN_BUTTON 2
+#define RESET_BUTTON 42
+
+// Konstanta
+constexpr unsigned long RFID_TIMEOUT = 5000;
+constexpr unsigned long STATE_TIMEOUT = 60000;
+constexpr unsigned long LOOP_INTERVAL_MS = 10;
+extern unsigned long lastReconnectAttempt;
+extern int wifiRetryCount;
+extern int wifiRetryLimit;
+constexpr unsigned long WIFI_CHECK_INTERVAL = 5000;
+constexpr unsigned long RECONNECT_INTERVAL = 30000;
+const unsigned long WIFI_CONNECTION_TIMEOUT = 30000;
+constexpr int MAX_RECONNECT_ATTEMPTS = 5;
+constexpr unsigned long ERROR_DISPLAY_DURATION = 2000;
+
+extern int lastButtonPressed;
+
+// Struktur Data
+struct RS485Data {
+  int id_driver = 0;
+  String nama_driver;
+  int id_customer = 0;
+  String no_polisi;
+  String nama_customer;
+  bool hasData = false;
+};
+
+// Enum State
+enum SystemState {
+  HOME,
+  READING_RFID,
+  WEIGHT_DISPLAY,
+  ERROR,
+  SENDING_DATA
+};
+
+enum class WiFiState {
+    DISCONNECTED,
+    CONNECTING,
+    CONNECTED,
+    FAILED
+};
+
+extern std::atomic<WiFiState> wifiState;
 
 constexpr int TIMEZONE_OFFSET_HOURS = 0;
 constexpr int TIME_ADJUST_MINUTES = 0;
 constexpr int TIME_ADJUST_SECONDS = 0; 
 
-extern MFRC522 mfrc522;
-extern MFRC522::MIFARE_Key key;
-extern bool spiEnabled;
-extern bool sendingData;
-
-// WiFi & API
-extern const char* ssid;
-extern const char* password;
-// extern const char* apiWeightInUrl;
-// extern const char* apiWeightOutUrl;
-
-extern unsigned long lastReconnectAttempt;
-extern const unsigned long RECONNECT_INTERVAL;
-
-enum WiFiState { 
-    DISCONNECTED, 
-    CONNECTING, 
-    CONNECTED 
-};
-extern WiFiState wifiState;
-
-// Enum untuk state sistem
-enum SystemState {
-    STATE_HOME,
-    STATE_READING_RFID,
-    STATE_WEIGHT_DISPLAY,
-    STATE_ERROR,
-    STATE_SENDING_DATA
+enum class ErrorCode : uint8_t {
+  NONE,               // 0
+  RFID_TIMEOUT,       // 1
+  RFID_FORMAT,        // 2
+  RFID_PARSE_ERROR,   // 3 (tambahkan ini)
+  RFID_OVERFLOW,      // 4 (tambahkan ini)
+  RFID_NO_DATA,       // 5 (tambahkan ini)
+  WIFI_CONNECT,       // 6
+  HTTP_FAIL,          // 7
+  MEMORY_ERROR,       // 8 (tambahkan ini)
+  SYSTEM_FAULT        // 9 (tambahkan ini)
 };
 
 enum HttpStatus { 
@@ -74,114 +92,75 @@ enum HttpStatus {
     HTTP_ERROR 
 };
 
-// Variabel global
-extern SystemState currentState;
-extern SystemState previousState;
-// extern HttpRequest currentHttpRequest;
-extern unsigned long lastStateChangeTime;
 extern HttpStatus httpState;
+extern bool sendingData;
 
-extern int lastButtonPressed;
-
-extern String currentTime;
+// Deklarasi objek eksternal
+extern U8G2_ST7920_128X64_F_SW_SPI u8g2;
+extern RTC_DS3231 rtc;
+extern const char* ssid;
+extern const char* password;
+extern HardwareSerial rs485Serial;
+extern HardwareSerial rs232Serial;
+extern RS485Data rs485Data;
+extern SystemState currentState;
+extern ErrorCode lastError;
+extern unsigned long lastStateChangeTime;
+extern float lastWeight;
 extern float weight_in;
 extern float weight_out;
 extern String time_in;
 extern String time_out;
-extern int id_driver;
-extern int id_customer;
-extern String nama_driver,no_polisi, nama_customer;
 
-extern const unsigned long LOOP_INTERVAL_MS;
-
-// Variabel animasi
-extern unsigned long lastAnimUpdate;
-extern int animFrame;
-extern const int animSpeed; // ms
-extern int cardPosX;
-
-// Block RFID yang dibaca
-extern int blocks[5];
-extern const int total_blocks;
-
-extern RTC_DS3231 rtc;
-
-// Deklarasi fungsi
-
+// Deklarasi fungsi utama
 void setupWiFi();
 
 void handleWiFi();
 
-void printWiFiDiagnostics();
-
-void setupDisplay();
-
 void handleMenu();
 
-void loadingDisplay();
+void resetRFIDData(bool resetHardware);
+
+void parseRS485Data(const String &data);
+
+void resetSystemForError();
+
+void handleHomeState();
 
 void HomeDisplay();
 
 void handleTimeAdjustment();
 
-void handleHomeState();
+void handleReadingRfidState();
 
-void displayMessage(String line1, String line2);
-
-void drawBlinkingText();
-
-void drawCompanyLogo();
-
-String getCurrentTime();
-
-void handleSendingDataState();
-
-void handleUnknownState();
-
-bool readRFIDData();
-
-void handleReadingRFIDState();
+float readWeight();
 
 void handleWeightDisplayState();
-
-void resetRFIDData(bool resetHardware = true);
-
-void checkRFIDPresence();
 
 void displayRFIDData(float weight);
 
 void displayWeight();
 
-void prepareHttpRequest(String url, String payload);
+int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in);
 
-void disableRFID();
+int sendDataOut(int id_driver, int id_customer, float weight_out, String time_out);
 
-void enableRFID();
+void handleSendingDataState();
+
+void serverResponseDisplay(int16_t responseCode);
+
+void handleErrorState();
+
+void displayMessage(const String& line1, const String& line2);
+
+String getCurrentTime();
+
+void logSystemStatus();
 
 bool checkResetButton();
 
 bool checkSendInButton();
 
 bool checkSendOutButton();
-
-void resetButtons();
-
-int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in);
-
-int sendDataOut(float weight_out, String time_out);
-
-bool processHttpRequest();
-
-void serverResponseDisplay(int16_t responseCode);
-
-void handleErrorState();
-
-// void handleSendingDataState();
-
-void logSystemStatus();
-
-void rfidTask(void *pvParameters);
-
-void drawPStr(u8g2_uint_t x, u8g2_uint_t y, const char* pstr);
 
 #endif

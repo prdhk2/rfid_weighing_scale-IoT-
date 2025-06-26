@@ -1,11 +1,17 @@
 #include "config.h"
 
 void handleWeightDisplayState() {
+    if (!rs485Data.hasData) {
+        lastError = ErrorCode::RFID_NO_DATA;
+        currentState = SystemState::ERROR;
+        lastStateChangeTime = millis();
+        return;
+    }
     displayWeight();
     
     if(millis() - lastStateChangeTime > 120000) {
-        currentState = STATE_HOME;
-        resetRFIDData();
+        currentState = HOME;
+        resetRFIDData(true);
     }
 }
 
@@ -36,7 +42,7 @@ void displayRFIDData(float weight) {
     u8g2.drawStr(40, 19, ":");
     u8g2.setFont(u8g2_font_6x10_tr);
     u8g2.setCursor(50, 19); 
-    u8g2.print(nama_driver.substring(0, 15)); // Limit length
+    u8g2.print(rs485Data.nama_driver.substring(0, 15)); // Limit length
     
     // License Plate
     u8g2.setFont(u8g2_font_5x7_tr);
@@ -44,7 +50,7 @@ void displayRFIDData(float weight) {
     u8g2.drawStr(40, 29, ":");   
     u8g2.setFont(u8g2_font_6x10_tr);
     u8g2.setCursor(50, 29); 
-    u8g2.print(no_polisi.substring(0, 10));
+    u8g2.print(rs485Data.no_polisi.substring(0, 10));
     
     // Customer
     u8g2.setFont(u8g2_font_5x7_tr);
@@ -52,7 +58,7 @@ void displayRFIDData(float weight) {
     u8g2.drawStr(40, 39, ":");    
     u8g2.setFont(u8g2_font_6x10_tr);
     u8g2.setCursor(50, 39); 
-    u8g2.print(nama_customer.substring(0, 15));
+    u8g2.print(rs485Data.nama_customer.substring(0, 15));
     
     // Weight
     u8g2.setFont(u8g2_font_5x7_tr);
@@ -98,13 +104,13 @@ void displayWeight() {
     }
 
     if (checkSendInButton() || checkSendOutButton()) {
-        currentState = STATE_SENDING_DATA;
+        currentState = SENDING_DATA;
         return;
     }
 
     if (checkResetButton()) {
-        currentState = STATE_HOME;
-        resetRFIDData();
+        currentState = HOME;
+        resetRFIDData(true);
         return;
     }
 }
@@ -130,8 +136,8 @@ bool checkResetButton() {
     if ((millis() - resetButton.lastDebounceTime) > 50) {
         if (currentRead == LOW) {
             Serial.println(F("Reset button pressed"));
-            resetRFIDData();
-            currentState = STATE_HOME;
+            resetRFIDData(true);
+            currentState = HOME;
             lastStateChangeTime = millis();
             u8g2.clearBuffer();
             HomeDisplay();
@@ -161,16 +167,14 @@ bool checkSendInButton() {
             // Tombol baru saja ditekan
             Serial.println("Tombol 'Masuk' ditekan, mengirim data IN...");
             sendingData = true;
-            disableRFID();
 
             String time_in = getCurrentTime();
-            int response = sendDataIn(id_driver, id_customer, weight_in, time_in);
+            int response = sendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, time_in);
             Serial.printf("Response Code: %d\n", response);
 
-            enableRFID();
             sendingData = false;
 
-            currentState = STATE_SENDING_DATA;
+            currentState = SENDING_DATA;
             lastStableState = currentRead;
             lastPhysicalRead = currentRead;
             return true;
@@ -197,16 +201,14 @@ bool checkSendOutButton() {
         if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData) {
             Serial.println("Tombol 'Keluar' ditekan, mengirim data OUT...");
             sendingData = true;
-            disableRFID();
 
             String time_out = getCurrentTime();
-            int response = sendDataOut(weight_out, time_out);
+            int response = sendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, time_out);
             Serial.printf("Response Code: %d\n", response);
 
-            enableRFID();
             sendingData = false;
 
-            currentState = STATE_SENDING_DATA;
+            currentState = SENDING_DATA;
             lastStableState = currentRead;
             lastPhysicalRead = currentRead;
             return true;

@@ -58,5 +58,5 @@ void serverResponseDisplay(int16_t responseCode) {
     yield();
 
     // Pindah ke state berikutnya
-    currentState = STATE_WEIGHT_DISPLAY;
+    currentState = SystemState::WEIGHT_DISPLAY;
 }

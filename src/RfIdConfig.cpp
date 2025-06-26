@@ -1,150 +1,203 @@
 #include "config.h"
 
+void handleReadingRfidState() {
+    static String buffer;
+    static bool receiving = false;
+    static unsigned long lastByteTime = 0;
+    const unsigned long TIMEOUT = 1000;
+
+    // Handle incoming data
+    while (rs485Serial.available()) {
+        char c = rs485Serial.read();
+        lastByteTime = millis();
+        
+        if (c == 0x02) { // STX
+            receiving = true;
+            buffer.reserve(128); // Alokasikan memory terlebih dahulu
+            buffer = "";
+            Serial.println("STX Received");
+            continue;
+        }
+        
+        if (c == 0x03) { // ETX
+            if (receiving) {
+                Serial.println("ETX Received - Parsing data");
+                parseRS485Data(buffer);
+                receiving = false;
+                
+                // Tambahkan pengecekan sebelum ganti state
+                if (rs485Data.hasData) {
+                    currentState = SystemState::WEIGHT_DISPLAY;
+                    lastStateChangeTime = millis();
+                } else {
+                    lastError = ErrorCode::RFID_PARSE_ERROR;
+                    currentState = SystemState::ERROR;
+                    lastStateChangeTime = millis();
+                }
+            }
+            continue;
+        }
+        
+        if (receiving) {
+            // Batasi panjang buffer untuk menghindari overflow
+            if (buffer.length() < 128) {
+                buffer += c;
+            } else {
+                receiving = false;
+                lastError = ErrorCode::RFID_OVERFLOW;
+                currentState = SystemState::ERROR;
+                lastStateChangeTime = millis();
+            }
+        }
+    }
+
+    // Timeout handling
+    if (receiving && (millis() - lastByteTime > TIMEOUT)) {
+        Serial.println("RFID Timeout Occurred");
+        receiving = false;
+        buffer = "";
+        lastError = ErrorCode::RFID_TIMEOUT;
+        currentState = SystemState::ERROR;
+        lastStateChangeTime = millis();
+    }
+}
+
 void handleErrorState() {
     static bool messageShown = false;
     static unsigned long errorStartTime = 0;
-    const uint32_t ERROR_DISPLAY_DURATION = 2000;
-
-    auto centerText = [](const char* text) {
-        return (128 - u8g2.getStrWidth(text)) / 2;
-    };
-
+    const uint32_t ERROR_DISPLAY_DURATION = 5000; // Perpanjang durasi
+    
     if (!messageShown) {
         u8g2.clearBuffer();
-        
         u8g2.setDrawColor(1);
         u8g2.drawBox(0, 0, 128, 16);
         u8g2.setDrawColor(0);
         u8g2.setFont(u8g2_font_7x14B_tr);
-        u8g2.drawStr(centerText("ERROR"), 13, "ERROR");
         
+        // Center error header
+        u8g2.drawStr((128 - u8g2.getStrWidth("ERROR")) / 2, 13, "ERROR");
         u8g2.drawHLine(0, 14, 128);
         
-        // 4. Pesan error
+        // Tampilkan pesan error sesuai kode
         u8g2.setFont(u8g2_font_6x10_tr);
         u8g2.setDrawColor(1);
-        u8g2.drawStr(centerText("Gagal Baca RFID"), 35, "Gagal Baca RFID");
-        u8g2.drawStr(centerText("Tempelkan Ulang"), 50, "Tempelkan Ulang");
+        
+        switch(lastError) {
+            case ErrorCode::RFID_TIMEOUT:
+                u8g2.drawStr(10, 30, "RFID Timeout");
+                u8g2.drawStr(10, 45, "Tempelkan kembali");
+                break;
+            case ErrorCode::RFID_FORMAT:
+            case ErrorCode::RFID_PARSE_ERROR:
+                u8g2.drawStr(10, 30, "Format RFID Salah");
+                u8g2.drawStr(10, 45, "Gunakan kartu valid");
+                break;
+            case ErrorCode::RFID_OVERFLOW:
+                u8g2.drawStr(10, 30, "Data RFID Terlalu");
+                u8g2.drawStr(10, 45, "Panjang");
+                break;
+            case ErrorCode::WIFI_CONNECT:
+                u8g2.drawStr(10, 30, "Gagal Konek WiFi");
+                u8g2.drawStr(10, 45, "Cek jaringan");
+                break;
+            case ErrorCode::HTTP_FAIL:
+                u8g2.drawStr(10, 30, "Gagal Kirim Data");
+                u8g2.drawStr(10, 45, "Cek server");
+                break;
+            default:
+                u8g2.drawStr(10, 30, "Error Sistem");
+                u8g2.drawStr(10, 45, "Reset Perangkat");
+        }
         
         u8g2.drawHLine(0, 63, 128);
-        
         u8g2.sendBuffer();
         errorStartTime = millis();
         messageShown = true;
-
     }
 
+    // Handle timeout dan reset
     if (millis() - errorStartTime >= ERROR_DISPLAY_DURATION) {
-        resetRFIDData();
-        currentState = STATE_HOME;
-        lastStateChangeTime = millis();
+        resetSystemForError();
         messageShown = false;
     }
     yield();
 }
 
-bool readRFIDData() {
-    char temp_id_driver[17] = "";
-    char temp_nama_driver[17] = "";
-    char temp_id_customer[17] = "";
-    char temp_no_polisi[17] = "";
-    char temp_nama_customer[17] = "";
-
-    for (byte i = 0; i < total_blocks; i++) {
-        byte buffer[18] = {0};
-        byte block = blocks[i];
-        byte len = 18;
-
-        MFRC522::StatusCode status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, block, &key, &(mfrc522.uid));
-        if (status != MFRC522::STATUS_OK) continue;
-
-        status = mfrc522.MIFARE_Read(block, buffer, &len);
-        if (status != MFRC522::STATUS_OK) continue;
-
-        buffer[16] = 0;  // Null terminator
-        switch (block) {
-            case 4: strncpy(temp_id_driver, (char*)buffer, 16); break;
-            case 5: strncpy(temp_nama_driver, (char*)buffer, 16); break;
-            case 6: strncpy(temp_id_customer, (char*)buffer, 16); break;
-            case 8: strncpy(temp_no_polisi, (char*)buffer, 16); break;
-            case 9: strncpy(temp_nama_customer, (char*)buffer, 16); break;
-        }
-    }
-
-    if (strlen(temp_id_driver) == 0 || strlen(temp_nama_driver) == 0 ||
-        strlen(temp_id_customer) == 0 || strlen(temp_no_polisi) == 0 ||
-        strlen(temp_nama_customer) == 0) {
-        Serial.println("Data RFID tidak lengkap!");
-        return false;
-    }
-
-    id_driver = atoi(temp_id_driver);
-    nama_driver = String(temp_nama_driver);     nama_driver.trim();
-    id_customer = atoi(temp_id_customer);
-    no_polisi = String(temp_no_polisi);         no_polisi.trim();
-    nama_customer = String(temp_nama_customer); nama_customer.trim();
-
-
-    yield();
-    return true;
-
-}
-
 void resetRFIDData(bool resetHardware) {
-    mfrc522.PICC_HaltA();
-    mfrc522.PCD_StopCrypto1();
-
-    id_driver = 0;
-    nama_driver = "";
-    id_customer = 0;
-    no_polisi = "";
-    nama_customer = "";
-
-    cardPosX = 128;
-    animFrame = 0;
-    lastAnimUpdate = 0;
+    rs485Data.id_driver = 0;
+    rs485Data.nama_driver = "";
+    rs485Data.id_customer = 0;
+    rs485Data.no_polisi = "";
+    rs485Data.nama_customer = "";
+    rs485Data.hasData = false;
 
     if (resetHardware) {
-        mfrc522.PCD_Init();
-        for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
-        Serial.println("RFID hardware direset");
+        rs485Serial.flush();
+        digitalWrite(DE_RE_PIN, LOW);
     }
 }
 
-void checkRFIDPresence() {
-    static unsigned long lastRfidCheck = 0;
-    const unsigned long rfidCheckInterval = 200; // ms
+void parseRS485Data(const String &data) {  // Gunakan const reference
+    // Pastikan data memiliki format yang benar
+    if (data.length() < 10) {  // Nilai minimal yang masuk akal
+        lastError = ErrorCode::RFID_FORMAT;
+        currentState = SystemState::ERROR;
+        return;
+    }
 
-    if (millis() - lastRfidCheck > rfidCheckInterval) {
-        lastRfidCheck = millis();
-
-        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial()) {
-            if (currentState != STATE_READING_RFID) {
-                previousState = currentState;
-                currentState = STATE_READING_RFID;
-                lastStateChangeTime = millis();
-            }
+    int parts[4];
+    parts[0] = data.indexOf(',');
+    
+    for (int i = 1; i < 4; i++) {
+        parts[i] = data.indexOf(',', parts[i-1] + 1);
+        if (parts[i] == -1) {
+            lastError = ErrorCode::RFID_FORMAT;
+            currentState = SystemState::ERROR;
+            return;
         }
     }
+
+    // Gunakan temporary variables untuk menghindari masalah memori
+    int temp_id_driver = data.substring(0, parts[0]).toInt();
+    String temp_nama_driver = data.substring(parts[0]+1, parts[1]);
+    int temp_id_customer = data.substring(parts[1]+1, parts[2]).toInt();
+    String temp_no_polisi = data.substring(parts[2]+1, parts[3]);
+    String temp_nama_customer = data.substring(parts[3]+1);
+
+    // Assign ke struct setelah semua parsing selesai
+    rs485Data.id_driver = temp_id_driver;
+    rs485Data.nama_driver = temp_nama_driver;
+    rs485Data.id_customer = temp_id_customer;
+    rs485Data.no_polisi = temp_no_polisi;
+    rs485Data.nama_customer = temp_nama_customer;
+    rs485Data.hasData = true;
+    
+    Serial.println("Data RFID diterima:");
+    Serial.println("Driver: " + rs485Data.nama_driver);
+    Serial.println("No Pol: " + rs485Data.no_polisi);
 }
 
-void handleReadingRFIDState() {
-    static bool readingStarted = false;
-
-    if (!readingStarted) {
-        readingStarted = true;
-
-        Serial.println("Membaca data RFID...");
-        if (readRFIDData()) {
-            Serial.println("RFID berhasil dibaca");
-            currentState = STATE_WEIGHT_DISPLAY;
-        } else {
-            Serial.println("Data RFID tidak valid");
-            currentState = STATE_ERROR;
-        }
-
-        readingStarted = false;
+void resetSystemForError() {
+    // Reset data RFID
+    resetRFIDData(true);
+    
+    // Reset state berdasarkan jenis error
+    switch(lastError) {
+        case ErrorCode::RFID_TIMEOUT:
+        case ErrorCode::RFID_FORMAT:
+        case ErrorCode::RFID_PARSE_ERROR:
+        case ErrorCode::RFID_OVERFLOW:
+            currentState = SystemState::HOME;
+            break;
+            
+        case ErrorCode::HTTP_FAIL:
+            currentState = SystemState::WEIGHT_DISPLAY; // Coba kirim lagi
+            break;
+            
+        default:
+            currentState = SystemState::HOME;
     }
-
-    yield();
+    
+    lastStateChangeTime = millis();
+    lastError = ErrorCode::NONE;
 }

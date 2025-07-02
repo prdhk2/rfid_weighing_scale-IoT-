@@ -1,7 +1,7 @@
 #include "config.h"
 
-const char *ssid = "zxckoiii";
-const char *password = "z3r0w4sTexyz";
+const char *ssid = "Biodigester2025";
+const char *password = "z3r0w4sTe###";
 
 unsigned long wifiCheckMillis = 0;
 bool wifiConnected = false;
@@ -12,7 +12,6 @@ void setupWiFi() {
     Serial.println("Starting WiFi...");
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
-    // Gunakan power default terlebih dahulu (20.5dBm)
     WiFi.setTxPower(WIFI_POWER_19_5dBm);
     WiFi.begin(ssid, password);
     wifiCheckMillis = millis();

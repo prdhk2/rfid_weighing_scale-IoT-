@@ -2,7 +2,7 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-#include <WiFi.h>
+#include "WiFi.h"
 #include <HTTPClient.h>
 #include <U8g2lib.h>
 #include <Wire.h>
@@ -25,6 +25,9 @@
 #define IN_BUTTON 2
 #define RESET_BUTTON 42
 
+// Relay
+#define RELAY_CONTROL 11
+
 // Konstanta
 constexpr unsigned long RFID_TIMEOUT = 5000;
 constexpr unsigned long STATE_TIMEOUT = 60000;
@@ -42,22 +45,22 @@ extern int lastButtonPressed;
 
 // Struktur Data
 struct RS485Data {
-  String slave_id;
-  int id_driver = 0;
-  String nama_driver;
-  int id_customer = 0;
-  String no_polisi;
-  String nama_customer;
-  bool hasData = false;
+    String slave_id;
+    int id_driver = 0;
+    String nama_driver;
+    int id_customer = 0;
+    String no_polisi;
+    String nama_customer;
+    bool hasData = false;
 };
 
 // Enum State
 enum SystemState {
-  HOME,
-  READING_RFID,
-  WEIGHT_DISPLAY,
-  ERROR,
-  SENDING_DATA
+    HOME,
+    READING_RFID,
+    WEIGHT_DISPLAY,
+    ERROR,
+    SENDING_DATA
 };
 
 enum class WiFiState {
@@ -74,16 +77,16 @@ constexpr int TIME_ADJUST_MINUTES = 0;
 constexpr int TIME_ADJUST_SECONDS = 0; 
 
 enum class ErrorCode : uint8_t {
-  NONE,               // 0
-  RFID_TIMEOUT,       // 1
-  RFID_FORMAT,        // 2
-  RFID_PARSE_ERROR,   // 3 (tambahkan ini)
-  RFID_OVERFLOW,      // 4 (tambahkan ini)
-  RFID_NO_DATA,       // 5 (tambahkan ini)
-  WIFI_CONNECT,       // 6
-  HTTP_FAIL,          // 7
-  MEMORY_ERROR,       // 8 (tambahkan ini)
-  SYSTEM_FAULT        // 9 (tambahkan ini)
+    NONE,               // 0
+    RFID_TIMEOUT,       // 1
+    RFID_FORMAT,        // 2
+    RFID_PARSE_ERROR,   // 3 (tambahkan ini)
+    RFID_OVERFLOW,      // 4 (tambahkan ini)
+    RFID_NO_DATA,       // 5 (tambahkan ini)
+    WIFI_CONNECT,       // 6
+    HTTP_FAIL,          // 7
+    MEMORY_ERROR,       // 8 (tambahkan ini)
+    SYSTEM_FAULT        // 9 (tambahkan ini)
 };
 
 enum HttpStatus { 
@@ -91,6 +94,15 @@ enum HttpStatus {
     HTTP_SENDING, 
     HTTP_RECEIVING, 
     HTTP_ERROR 
+};
+
+enum class RelayState {
+    IDLE,
+    SUCCESS_ON,
+    SUCCESS_OFF,
+    FAILURE_ON,
+    FAILURE_OFF,
+    COMPLETED
 };
 
 extern HttpStatus httpState;
@@ -163,5 +175,15 @@ bool checkResetButton();
 bool checkSendInButton();
 
 bool checkSendOutButton();
+
+void resetRFIDReading();
+
+void setupRelay();
+
+void handleRelay(int responseCode);
+
+void updateRelay();
+
+bool isRelayBusy();
 
 #endif

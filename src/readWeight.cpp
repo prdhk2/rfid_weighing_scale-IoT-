@@ -11,7 +11,7 @@ float readWeight() {
             String numericPart = extractNumericPart(buffer);
             buffer = "";  // Reset
             if (numericPart.length() > 0) {
-                return numericPart.toFloat();
+                lastWeight = numericPart.toFloat();
             } else {
                 return NAN;
             }

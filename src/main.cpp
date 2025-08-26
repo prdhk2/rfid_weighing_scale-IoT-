@@ -55,6 +55,8 @@ void setup() {
     pinMode(OUT_BUTTON, INPUT_PULLUP);
     pinMode(RESET_BUTTON, INPUT_PULLUP);
 
+    setupRelay();
+
     lastStateChangeTime = millis();
 }
 
@@ -62,6 +64,7 @@ void loop() {
     static unsigned long lastLoopTime = 0;
     
     handleWiFi();
+    readWeight();
     delay(10);
 
     if (millis() - lastLoopTime >= LOOP_INTERVAL_MS) {

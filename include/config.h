@@ -26,7 +26,7 @@
 #define RESET_BUTTON 42
 
 // Relay
-#define RELAY_CONTROL 11
+// #define RELAY_CONTROL 11
 
 // Konstanta
 constexpr unsigned long RFID_TIMEOUT = 5000;
@@ -168,7 +168,7 @@ void displayMessage(const String& line1, const String& line2);
 
 String getCurrentTime();
 
-void logSystemStatus();
+// void logSystemStatus();
 
 bool checkResetButton();
 
@@ -176,14 +176,14 @@ bool checkSendInButton();
 
 bool checkSendOutButton();
 
-void resetRFIDReading();
+// void resetRFIDReading();
 
-void setupRelay();
+// void setupRelay();
 
-void handleRelay(int responseCode);
+// void handleRelay(int responseCode);
 
-void updateRelay();
+// void updateRelay();
 
-bool isRelayBusy();
+// bool isRelayBusy();
 
 #endif

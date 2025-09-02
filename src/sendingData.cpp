@@ -47,8 +47,6 @@ int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in) 
     }
 
     http.end();
-
-    serverResponseDisplay(httpResponseCode);
     return httpResponseCode;
 }
 
@@ -95,8 +93,6 @@ int sendDataOut(int id_driver, int id_customer, float weight_out, String time_ou
         Serial.printf("HTTP POST failed, error: %s\n", http.errorToString(httpResponseCode).c_str());
     }
 
-    serverResponseDisplay(httpResponseCode);
     http.end();
-
     return httpResponseCode;
 }

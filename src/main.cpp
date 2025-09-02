@@ -33,6 +33,8 @@ void setup() {
     // Inisialisasi WiFi
     setupWiFi();
 
+    enableCore0WDT();
+
     // Inisialisasi Display
     u8g2.begin();
     u8g2.setBusClock(100000);
@@ -50,12 +52,14 @@ void setup() {
         while (true) yield();
     }
 
+    if(rtc.lostPower()) {
+        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    }
+
     // Tombol
     pinMode(IN_BUTTON, INPUT_PULLUP);
     pinMode(OUT_BUTTON, INPUT_PULLUP);
     pinMode(RESET_BUTTON, INPUT_PULLUP);
-
-    setupRelay();
 
     lastStateChangeTime = millis();
 }

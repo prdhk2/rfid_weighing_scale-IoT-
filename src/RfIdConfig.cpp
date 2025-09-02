@@ -55,11 +55,9 @@ void handleReadingRfidState() {
                 if (rs485Data.slave_id == "1") {
                     weight_in = weight;
                     response = sendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, timestamp);
-                    handleRelay(response);
                 } else if (rs485Data.slave_id == "2") {
                     weight_out = weight;
                     response = sendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, timestamp);
-                    handleRelay(response);
                 } else {
                     Serial.println("Slave ID tidak dikenal!");
                 }

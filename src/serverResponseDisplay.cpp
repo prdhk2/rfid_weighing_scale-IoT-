@@ -1,8 +1,13 @@
 #include "config.h"
 
-// Fungsi untuk mengambil teks dari PROGMEM dan menggambarnya di tengah layar
+// Variabel untuk response display
+ResponseState responseState = ResponseState::NONE;
+unsigned long responseStartTime = 0;
+int16_t lastHttpResponseCode = 0;
+
+// Fungsi untuk mengambil teks dari PROGMEM
 void drawCenteredPStr(u8g2_uint_t y, const char* pstr) {
-    char buffer[32]; // Ukuran buffer yang cukup
+    char buffer[32];
     strncpy_P(buffer, pstr, sizeof(buffer));
     buffer[sizeof(buffer)-1] = '\0';
 
@@ -11,52 +16,104 @@ void drawCenteredPStr(u8g2_uint_t y, const char* pstr) {
     u8g2.print(buffer);
 }
 
-void serverResponseDisplay(int16_t responseCode) {
-    // Teks yang disimpan di PROGMEM
+// Fungsi untuk menampilkan response (non-blocking)
+void handleResponseDisplay() {
+    if (responseState != ResponseState::SHOWING_RESPONSE) {
+        return;
+    }
+
+    const unsigned long DISPLAY_DURATION = 3000; // 3 detik
+
+    // Tampilkan response untuk pertama kali
+    if (responseStartTime > 0 && millis() - responseStartTime == 0) {
+        showResponseScreen(lastHttpResponseCode);
+    }
+
+    // Cek jika waktu display sudah selesai
+    if (millis() - responseStartTime >= DISPLAY_DURATION) {
+        responseState = ResponseState::COMPLETED;
+        responseStartTime = 0;
+        
+        // Kembali ke weight display
+        responseState = ResponseState::ALARM_RESPONSE;
+        return;
+    }
+
+    // Refresh display secara periodic (opsional)
+    static unsigned long lastRefresh = 0;
+    if (millis() - lastRefresh >= 500) {
+        lastRefresh = millis();
+        showResponseScreen(lastHttpResponseCode);
+    }
+}
+
+// Fungsi untuk menampilkan layar response
+void showResponseScreen(int16_t responseCode) {
     static const char successMsg[] PROGMEM = "Data Terkirim!";
     static const char failMsg[] PROGMEM = "Gagal!";
     static const char codePrefix[] PROGMEM = "Kode: ";
 
-    // Bersihkan layar
     u8g2.clearBuffer();
 
     // Gambar kotak respon
-    u8g2.setDrawColor(0); // warna background kotak (hitam)
-    u8g2.drawBox(0, 20, 128, 30); // posisi dan ukuran kotak
-    u8g2.setDrawColor(1); // warna teks dan border (putih)
-    u8g2.drawFrame(2, 18, 124, 34); // frame tepi kotak
+    u8g2.setDrawColor(0);
+    u8g2.drawBox(0, 20, 128, 30);
+    u8g2.setDrawColor(1);
+    u8g2.drawFrame(2, 18, 124, 34);
 
-    // Atur font
     u8g2.setFont(u8g2_font_helvB12_tr);
 
     if (responseCode == HTTP_CODE_OK) {
-        // Jika sukses, tampilkan pesan "Data Terkirim!" di tengah
         drawCenteredPStr(40, successMsg);
     } else {
-        // Jika gagal, tampilkan pesan "Gagal!" dan kode error
-
-        // Gambar tulisan "Gagal!" di tengah atas kotak
         drawCenteredPStr(30, failMsg);
 
-        // Gabungkan teks "Kode: " dengan angka kode error
         char codeBuffer[32];
         char prefixBuffer[16];
         strncpy_P(prefixBuffer, codePrefix, sizeof(prefixBuffer));
         prefixBuffer[sizeof(prefixBuffer)-1] = '\0';
 
         snprintf(codeBuffer, sizeof(codeBuffer), "%s%d", prefixBuffer, responseCode);
-
-        // Gambar tulisan "Kode: -1" atau semacamnya di tengah bawah
+        
         u8g2.setCursor((128 - u8g2.getStrWidth(codeBuffer)) / 2, 45);
         u8g2.print(codeBuffer);
     }
 
-    // Tampilkan semua ke layar
     u8g2.sendBuffer();
-
-    // Delay ringan dan yield
     yield();
+}
 
-    // Pindah ke state berikutnya
-    currentState = SystemState::WEIGHT_DISPLAY;
+// Fungsi untuk memulai response display
+void startResponseDisplay(int16_t responseCode) {
+    lastHttpResponseCode = responseCode;
+    responseState = ResponseState::SHOWING_RESPONSE;
+    responseStartTime = millis();
+    showResponseScreen(responseCode); // Tampilkan segera
+}
+
+// Handle sending data state (non-blocking)
+void handleSendingDataState() {
+    // Jika HTTP request masih berjalan, tunggu
+    if (isHttpRequestInProgress()) {
+        processHttpRequests(); // Process HTTP requests
+        return;
+    }
+
+    // Jika HTTP selesai dan belum menampilkan response
+    if (responseState == ResponseState::NONE && !isHttpRequestInProgress()) {
+        startResponseDisplay(httpResponseCode);
+        return;
+    }
+
+    // Jika sedang menampilkan response
+    if (responseState == ResponseState::SHOWING_RESPONSE) {
+        handleResponseDisplay();
+        return;
+    }
+
+    // Jika response display selesai
+    if (responseState == ResponseState::COMPLETED) {
+        currentState = SystemState::WEIGHT_DISPLAY;
+        responseState = ResponseState::NONE;
+    }
 }

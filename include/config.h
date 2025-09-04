@@ -26,12 +26,12 @@
 #define RESET_BUTTON 42
 
 // Relay
-// #define RELAY_CONTROL 11
+#define RELAY_CONTROL 20
 
 // Konstanta
 constexpr unsigned long RFID_TIMEOUT = 5000;
 constexpr unsigned long STATE_TIMEOUT = 60000;
-constexpr unsigned long LOOP_INTERVAL_MS = 10;
+constexpr unsigned long MENU_INTERVAL = 10;
 extern unsigned long lastReconnectAttempt;
 extern int wifiRetryCount;
 extern int wifiRetryLimit;
@@ -77,16 +77,15 @@ constexpr int TIME_ADJUST_MINUTES = 0;
 constexpr int TIME_ADJUST_SECONDS = 0; 
 
 enum class ErrorCode : uint8_t {
-    NONE,               // 0
-    RFID_TIMEOUT,       // 1
-    RFID_FORMAT,        // 2
-    RFID_PARSE_ERROR,   // 3 (tambahkan ini)
-    RFID_OVERFLOW,      // 4 (tambahkan ini)
-    RFID_NO_DATA,       // 5 (tambahkan ini)
-    WIFI_CONNECT,       // 6
-    HTTP_FAIL,          // 7
-    MEMORY_ERROR,       // 8 (tambahkan ini)
-    SYSTEM_FAULT        // 9 (tambahkan ini)
+    NONE,
+    RFID_TIMEOUT,
+    RFID_FORMAT,
+    RFID_PARSE_ERROR,
+    RFID_OVERFLOW,
+    WIFI_CONNECT,
+    HTTP_FAIL,
+    WEIGHT_INVALID,
+    RFID_COMM_ERROR
 };
 
 enum HttpStatus { 
@@ -94,6 +93,34 @@ enum HttpStatus {
     HTTP_SENDING, 
     HTTP_RECEIVING, 
     HTTP_ERROR 
+};
+
+struct HttpRequestData {
+    String url;
+    String jsonData;
+    int retryCount;
+    unsigned long lastAttemptTime;
+    int httpResponseCode;
+    bool inProgress;
+};
+
+extern int httpResponseCode;
+
+enum class ResponseState {
+    NONE,
+    SHOWING_RESPONSE,
+    ALARM_RESPONSE,
+    COMPLETED
+};
+
+extern ResponseState responseState;
+extern unsigned long responseStartTime;
+extern int16_t lastHttpResponseCode;
+
+enum HttpRequestType {
+    NONE,
+    WEIGHT_IN,
+    WEIGHT_OUT
 };
 
 enum class RelayState {
@@ -109,6 +136,7 @@ extern HttpStatus httpState;
 extern bool sendingData;
 
 // Deklarasi objek eksternal
+extern bool wifiNeedUpdate;
 extern U8G2_ST7920_128X64_F_SW_SPI u8g2;
 extern RTC_DS3231 rtc;
 extern const char* ssid;
@@ -126,17 +154,27 @@ extern String time_in;
 extern String time_out;
 
 // Deklarasi fungsi utama
+const char *getWifiStatusString(wl_status_t status);
+
+bool isWiFiConnected();
+
 void setupWiFi();
 
 void handleWiFi();
 
 void handleMenu();
 
+void handleRS485();
+
 void resetRFIDData(bool resetHardware);
 
 void parseRS485Data(const String &data);
 
 void resetSystemForError();
+
+void setWifiNeedUpdate(bool state);
+
+const char *getQuickWifiStatus();
 
 void handleHomeState();
 
@@ -154,13 +192,23 @@ void displayRFIDData(float weight);
 
 void displayWeight();
 
-int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in);
+int startSendDataIn(int id_driver, int id_customer, float weight_in, String time_in);
 
-int sendDataOut(int id_driver, int id_customer, float weight_out, String time_out);
+int startSendDataOut(int id_driver, int id_customer, float weight_out, String time_out);
 
 void handleSendingDataState();
 
-void serverResponseDisplay(int16_t responseCode);
+void processHttpRequests();
+
+bool isHttpRequestInProgress();
+
+void finishHttpRequest();
+
+void handleResponseDisplay();
+
+void startResponseDisplay(int16_t responseCode);
+
+void showResponseScreen(int16_t responseCode);
 
 void handleErrorState();
 

@@ -24,4 +24,6 @@ float readWeight() {
         }
     }
     return lastWeight;
+
+    yield();
 }

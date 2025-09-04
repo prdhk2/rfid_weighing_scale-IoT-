@@ -25,15 +25,15 @@ float lastWeight = -1;
 float weight_in = 0;
 float weight_out = 0;
 
+static unsigned long lastMenuTime = 0;
+
 void setup() {
-    // esp_task_wdt_init(30, true);
+    esp_task_wdt_init(30, true);
     Serial.begin(115200);
     disableCore0WDT();
 
     // Inisialisasi WiFi
     setupWiFi();
-
-    enableCore0WDT();
 
     // Inisialisasi Display
     u8g2.begin();
@@ -52,29 +52,38 @@ void setup() {
         while (true) yield();
     }
 
-    if(rtc.lostPower()) {
-        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-    }
-
     // Tombol
     pinMode(IN_BUTTON, INPUT_PULLUP);
     pinMode(OUT_BUTTON, INPUT_PULLUP);
     pinMode(RESET_BUTTON, INPUT_PULLUP);
 
     lastStateChangeTime = millis();
+
+    enableCore0WDT();
 }
 
 void loop() {
-    static unsigned long lastLoopTime = 0;
-    
-    handleWiFi();
+    // Task prioritas tinggi
     readWeight();
-    delay(10);
-
-    if (millis() - lastLoopTime >= LOOP_INTERVAL_MS) {
-        lastLoopTime = millis();
-
+    handleRS485();
+    
+    // WiFi handling (ringan)
+    handleWiFi();
+    
+    // HTTP processing
+    processHttpRequests();
+    
+    // Menu handling (jarang)
+    if (millis() - lastMenuTime >= MENU_INTERVAL) {
+        lastMenuTime = millis();
         handleMenu();
+    }
+    
+    // Yield efficient
+    static unsigned long lastYield = 0;
+    if (millis() - lastYield >= 2) {
+        lastYield = millis();
+        yield();
     }
 }
 

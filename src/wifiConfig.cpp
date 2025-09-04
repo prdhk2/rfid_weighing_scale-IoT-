@@ -1,48 +1,86 @@
 #include "config.h"
+#include <WiFi.h>
 
 const char *ssid = "Biodigester2025";
 const char *password = "z3r0w4sTe###";
 
-unsigned long wifiCheckMillis = 0;
+bool wifiNeedUpdate = false; // Flag untuk update WiFi status
+unsigned long lastWifiCheck = 0;
+unsigned long lastStatusPrint = 0;
 bool wifiConnected = false;
+wl_status_t lastWifiStatus = WL_NO_SHIELD;
 
-#define WIFI_RETRY_INTERVAL 10000
+#define WIFI_CHECK_INTERVAL 1000   // Cek WiFi setiap 1 detik
+#define STATUS_PRINT_INTERVAL 5000 // Print status setiap 5 detik
+
+void IRAM_ATTR setWifiNeedUpdate(bool state) {
+    wifiNeedUpdate = state;
+}
 
 void setupWiFi() {
-    Serial.println("Starting WiFi...");
-    WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false);
-    WiFi.setTxPower(WIFI_POWER_19_5dBm);
     WiFi.begin(ssid, password);
-    wifiCheckMillis = millis();
+    lastWifiCheck = millis();
 }
 
 void handleWiFi() {
     unsigned long now = millis();
-
-    wl_status_t status = WiFi.status();
-
-    // Jika terkoneksi tapi sebelumnya dianggap tidak
-    if (status == WL_CONNECTED && !wifiConnected) {
-        wifiConnected = true;
-        Serial.print("WiFi Connected: ");
-        Serial.println(WiFi.localIP());
+    
+    // Cek WiFi hanya jika perlu atau periodik
+    if (wifiNeedUpdate || (now - lastWifiCheck >= WIFI_CHECK_INTERVAL)) {
+        wifiNeedUpdate = false;
+        lastWifiCheck = now;
+        
+        wl_status_t currentStatus = WiFi.status();
+        
+        // Handle status changes
+        if (currentStatus != lastWifiStatus) {
+            lastWifiStatus = currentStatus;
+            
+            if (currentStatus == WL_CONNECTED) {
+                wifiConnected = true;
+                // Hanya print jika status berubah
+                // Serial.print("✓ WiFi Connected: ");
+                // Serial.println(WiFi.localIP());
+            } 
+            else if (wifiConnected) {
+                wifiConnected = false;
+                // Serial.println("✗ WiFi disconnected");
+            }
+        }
+        
+        // Print status periodik (non-blocking)
+        // if (now - lastStatusPrint >= STATUS_PRINT_INTERVAL) {
+        //     lastStatusPrint = now;
+            
+        //     if (currentStatus == WL_CONNECTED) {
+        //         Serial.printf("WiFi OK | RSSI: %ddBm\n", WiFi.RSSI());
+        //     }
+        // }
+        
+        // Handle reconnection
+        if (!wifiConnected && currentStatus != WL_CONNECTED) {
+            if (currentStatus == WL_IDLE_STATUS || currentStatus == WL_DISCONNECTED) {
+                WiFi.reconnect();
+            }
+        }
     }
+}
 
-    // Jika terputus
-    if (status != WL_CONNECTED && wifiConnected) {
-        wifiConnected = false;
-        Serial.println("WiFi lost connection!");
-        WiFi.disconnect(true); // Putuskan total
-        delay(100);
-        WiFi.begin(ssid, password); // Coba sambung lagi
-        wifiCheckMillis = now;
-    }
+bool isWiFiConnected() {
+    return wifiConnected && (WiFi.status() == WL_CONNECTED);
+}
 
-    // Jika tidak konek dan cukup waktu berlalu
-    if (!wifiConnected && (now - wifiCheckMillis >= WIFI_RETRY_INTERVAL)) {
-        Serial.println("Retrying WiFi connection...");
-        WiFi.begin(ssid, password);
-        wifiCheckMillis = now;
+// Fungsi cepat untuk mendapatkan status WiFi
+const char* getQuickWifiStatus() {
+    static unsigned long lastCheck = 0;
+    static const char* cachedStatus = "NC";
+    
+    // Update cache hanya setiap 2 detik
+    if (millis() - lastCheck >= 2000) {
+        lastCheck = millis();
+        cachedStatus = (isWiFiConnected()) ? "OK" : "NC";
+        setWifiNeedUpdate(true); // Trigger update di background
     }
+    
+    return cachedStatus;
 }

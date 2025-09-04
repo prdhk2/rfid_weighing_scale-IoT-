@@ -13,19 +13,29 @@ bool inButtonPressed = false;
 bool inButtonHandled = false;
 const unsigned long debounceDelay = 50;
 
-void handleHomeState() {
-    HomeDisplay();
+// Variabel untuk optimasi display
+unsigned long lastDisplayUpdate = 0;
+#define DISPLAY_UPDATE_INTERVAL 100 // Update display setiap 100ms
 
-    handleTimeAdjustment();
-    
-    static unsigned long lastSerialCheck = 0;
-    if (millis() - lastSerialCheck > 1000) {
-        lastSerialCheck = millis();
-        Serial.printf("RS485 available: %d\n", rs485Serial.available());
-        Serial.printf("Free Heap: %d bytes\n", ESP.getFreeHeap());
+void handleHomeState() {
+    // Update display hanya periodik (bukan setiap loop)
+    if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
+        lastDisplayUpdate = millis();
+        HomeDisplay();
     }
     
-    if (rs485Serial.available()) {
+    handleTimeAdjustment();
+    
+    // Debug info hanya periodik
+    static unsigned long lastSerialCheck = 0;
+    if (millis() - lastSerialCheck > 5000) { // Setiap 5 detik
+        lastSerialCheck = millis();
+        Serial.printf("Free Heap: %d bytes | RS485: %d\n", 
+                     ESP.getFreeHeap(), rs485Serial.available());
+    }
+    
+    // Deteksi RS485 data (non-blocking)
+    if (rs485Serial.available() > 0) {
         currentState = SystemState::READING_RFID;
         lastStateChangeTime = millis();
         Serial.println("Data RS485 terdeteksi!");
@@ -33,17 +43,19 @@ void handleHomeState() {
 }
 
 void HomeDisplay() {
-   DateTime now = rtc.now();
+    DateTime now = rtc.now();
 
     int hour = (adjustState != IDLE) ? adjHour : now.hour();
     int minute = (adjustState != IDLE) ? adjMinute : now.minute();
     int second = (adjustState != IDLE) ? adjSecond : now.second();
 
+    // Blink handling
     if (millis() - lastBlink > 500) {
         blinkState = !blinkState;
         lastBlink = millis();
     }
 
+    // Format waktu
     char timeStr[9];
     if (adjustState == ADJUST_HOUR && !blinkState)
         snprintf(timeStr, sizeof(timeStr), "  :%02d:%02d", minute, second);
@@ -54,22 +66,28 @@ void HomeDisplay() {
     else
         snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d", hour, minute, second);
 
+    // Format tanggal
     char dateStr[12];
     snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d", now.day(), now.month(), now.year());
 
-    const char* wifiStatus = (WiFi.status() == WL_CONNECTED) ? "OK" : "NC";
+    // Dapatkan status WiFi secara cepat (cached)
+    const char* wifiStatus = getQuickWifiStatus();
 
+    // Render display
     u8g2.clearBuffer();
     u8g2.setDrawColor(1);
 
+    // Header (tanggal dan WiFi status)
     u8g2.setFont(u8g2_font_5x7_tr);
     u8g2.drawStr(0, 7, dateStr);
     u8g2.drawStr(128 - u8g2.getStrWidth(wifiStatus), 7, wifiStatus);
 
+    // Waktu utama
     u8g2.setFont(u8g2_font_logisoso24_tr);
     int timeWidth = u8g2.getStrWidth(timeStr);
     u8g2.drawStr((128 - timeWidth) / 2, 45, timeStr);
 
+    // Footer message
     u8g2.setFont(u8g2_font_6x10_tr);
     const char* msg = (adjustState == IDLE) ? "Waiting Data" : "Adjust Time";
     u8g2.drawStr((128 - u8g2.getStrWidth(msg)) / 2, 60, msg);

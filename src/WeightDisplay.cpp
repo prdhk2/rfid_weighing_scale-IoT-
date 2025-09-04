@@ -2,7 +2,7 @@
 
 void handleWeightDisplayState() {
     if (!rs485Data.hasData) {
-        lastError = ErrorCode::RFID_NO_DATA;
+        lastError = ErrorCode::RFID_COMM_ERROR;
         currentState = SystemState::ERROR;
         lastStateChangeTime = millis();
         return;
@@ -172,8 +172,8 @@ bool checkSendInButton() {
             Serial.println("Tombol 'Masuk' ditekan, mengirim data IN...");
             sendingData = true;
 
-            String time_in = getCurrentTime();
-            int response = sendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, time_in);
+            String timestamp = getCurrentTime();
+            int response = startSendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, timestamp);
             Serial.printf("Response Code: %d\n", response);
 
             sendingData = false;
@@ -206,8 +206,8 @@ bool checkSendOutButton() {
             Serial.println("Tombol 'Keluar' ditekan, mengirim data OUT...");
             sendingData = true;
 
-            String time_out = getCurrentTime();
-            int response = sendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, time_out);
+            String timestamp = getCurrentTime();
+            int response = startSendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, timestamp);
             Serial.printf("Response Code: %d\n", response);
 
             sendingData = false;

@@ -1,5 +1,7 @@
 #include "config.h"
 
+int response = -1;
+
 void handleWeightDisplayState() {
     if (!rs485Data.hasData) {
         lastError = ErrorCode::RFID_COMM_ERROR;
@@ -44,7 +46,7 @@ void displayRFIDData(float weight) {
     u8g2.setCursor(50, 19); 
     u8g2.print(rs485Data.nama_driver.substring(0, 15)); // Limit length
     
-    // License Plate
+    // License Plate    
     u8g2.setFont(u8g2_font_5x7_tr);
     u8g2.drawStr(2, 29, strNoPol);
     u8g2.drawStr(40, 29, ":");   
@@ -140,11 +142,7 @@ bool checkResetButton() {
     if ((millis() - resetButton.lastDebounceTime) > 50) {
         if (currentRead == LOW) {
             Serial.println(F("Reset button pressed"));
-            resetRFIDData(true);
             currentState = HOME;
-            lastStateChangeTime = millis();
-            u8g2.clearBuffer();
-            HomeDisplay();
             resetButton.lastButtonState = currentRead; // Perbaikan
             return true;
         }
@@ -156,7 +154,6 @@ bool checkResetButton() {
 
 bool checkSendInButton() {
     static unsigned long lastDebounceTime = 0;
-    static bool lastStableState = HIGH;
     static bool lastPhysicalRead = HIGH;
 
     bool currentRead = digitalRead(IN_BUTTON);
@@ -167,23 +164,18 @@ bool checkSendInButton() {
     }
 
     if ((millis() - lastDebounceTime) > 50) { // debounce 50ms
-        if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData && rs485Data.slave_id == "1") {
+        if (currentRead == LOW && httpState == HTTP_IDLE) {
             // Tombol baru saja ditekan
             Serial.println("Tombol 'Masuk' ditekan, mengirim data IN...");
-            sendingData = true;
 
             String timestamp = getCurrentTime();
-            int response = startSendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, timestamp);
+            response = startSendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, timestamp);
             Serial.printf("Response Code: %d\n", response);
 
-            sendingData = false;
-
             currentState = SENDING_DATA;
-            lastStableState = currentRead;
             lastPhysicalRead = currentRead;
             return true;
         }
-        lastStableState = currentRead;
     }
 
     lastPhysicalRead = currentRead;
@@ -192,7 +184,6 @@ bool checkSendInButton() {
 
 bool checkSendOutButton() {
     static unsigned long lastDebounceTime = 0;
-    static bool lastStableState = HIGH;
     static bool lastPhysicalRead = HIGH;
 
     bool currentRead = digitalRead(OUT_BUTTON);
@@ -202,22 +193,17 @@ bool checkSendOutButton() {
     }
 
     if ((millis() - lastDebounceTime) > 50) {
-        if (currentRead == LOW && lastStableState == HIGH && httpState == HTTP_IDLE && !sendingData && rs485Data.slave_id == "2") {
+        if (currentRead == LOW && httpState == HTTP_IDLE) {
             Serial.println("Tombol 'Keluar' ditekan, mengirim data OUT...");
-            sendingData = true;
 
             String timestamp = getCurrentTime();
-            int response = startSendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, timestamp);
+            response = startSendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, timestamp);
             Serial.printf("Response Code: %d\n", response);
 
-            sendingData = false;
-
             currentState = SENDING_DATA;
-            lastStableState = currentRead;
             lastPhysicalRead = currentRead;
             return true;
         }
-        lastStableState = currentRead;
     }
 
     lastPhysicalRead = currentRead;

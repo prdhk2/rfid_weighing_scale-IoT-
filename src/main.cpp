@@ -25,12 +25,13 @@ float lastWeight = -1;
 float weight_in = 0;
 float weight_out = 0;
 
+const unsigned long RTC_RETRY_INTERVAL = 5000;
+
 static unsigned long lastMenuTime = 0;
 
 void setup() {
-    esp_task_wdt_init(30, true);
+    
     Serial.begin(115200);
-    disableCore0WDT();
 
     // Inisialisasi WiFi
     setupWiFi();
@@ -45,12 +46,8 @@ void setup() {
     pinMode(DE_RE_PIN, OUTPUT);
     digitalWrite(DE_RE_PIN, LOW);
 
-    // RTC
-    Wire.begin(RTC_SDA, RTC_SCL);
-    if (!rtc.begin()) {
-        Serial.println("RTC not found!");
-        while (true) yield();
-    }
+    // // RTC
+    setupRTC();
 
     // Tombol
     pinMode(IN_BUTTON, INPUT_PULLUP);
@@ -59,12 +56,16 @@ void setup() {
 
     lastStateChangeTime = millis();
 
-    enableCore0WDT();
+    esp_task_wdt_init(35, true);
+    esp_task_wdt_add(NULL); // Tambahkan task utama ke WDT
 }
 
 void loop() {
     // Task prioritas tinggi
+    esp_task_wdt_reset();
+    
     readWeight();
+
     handleRS485();
     
     // WiFi handling (ringan)
@@ -78,6 +79,8 @@ void loop() {
         lastMenuTime = millis();
         handleMenu();
     }
+
+    updateRTC(); // Non-blocking RTC update
     
     // Yield efficient
     static unsigned long lastYield = 0;
@@ -90,35 +93,24 @@ void loop() {
 void handleMenu() {
     switch (currentState) {
         case SystemState::HOME: 
-        handleHomeState(); 
-        break;
+            handleHomeState(); 
+            break;
         case SystemState::READING_RFID: 
-        handleReadingRfidState(); 
-        break;
+            handleReadingRfidState(); 
+            break;
         case SystemState::WEIGHT_DISPLAY:
-        handleWeightDisplayState();
-        break;
+            handleWeightDisplayState();
+            break;
         case SystemState::SENDING_DATA:
-        handleSendingDataState();
-        break;
+            handleSendingDataState();
+            break;
         case SystemState::ERROR:
-        handleErrorState();
-        break;
+            handleErrorState();
+            break;
         default:
-        currentState = SystemState::HOME;
-        break;
+            currentState = SystemState::HOME;
+            break;
     }
-}
-
-String getCurrentTime() {
-    DateTime now = rtc.now();
-
-    char buffer[25];
-    sprintf(buffer, "%04d-%02d-%02d %02d:%02d:%02d", 
-            now.year(), now.month(), now.day(),
-            now.hour(), now.minute(), now.second());
-
-    return String(buffer);
 }
 
 void displayMessage(const String& line1, const String& line2) {

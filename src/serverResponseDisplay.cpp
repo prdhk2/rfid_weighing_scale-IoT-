@@ -35,7 +35,7 @@ void handleResponseDisplay() {
         responseStartTime = 0;
         
         // Kembali ke weight display
-        responseState = ResponseState::ALARM_RESPONSE;
+        currentState = SystemState::WEIGHT_DISPLAY;
         return;
     }
 

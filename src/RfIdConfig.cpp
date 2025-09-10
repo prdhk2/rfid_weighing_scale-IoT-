@@ -1,22 +1,50 @@
 #include "config.h"
 
-void handleReadingRfidState() {
-    static char buffer[129]; // Buffer statis (128 karakter + null terminator)
-    static uint8_t bufferIndex = 0;
-    static bool receiving = false;
-    static unsigned long lastByteTime = 0;
-    static unsigned long stopUntil = 0;
+// Struktur untuk mengelola state pembacaan RFID
+struct RFIDReaderState {
+    char buffer[129]; // Buffer statis (128 karakter + null terminator)
+    uint8_t bufferIndex;
+    bool receiving;
+    unsigned long lastByteTime;
+    unsigned long stopUntil;
+    
+    void reset() {
+        bufferIndex = 0;
+        receiving = false;
+        lastByteTime = 0;
+        stopUntil = 0;
+        buffer[0] = '\0';
+    }
+};
 
+static RFIDReaderState rfidState;
+
+void handleReadingRfidState() {
     const unsigned long TIMEOUT = 1000;
     const uint8_t MAX_BUFFER_SIZE = 128;
 
     // Skip jika dalam masa stop
-    if (millis() < stopUntil) {
+    if (millis() < rfidState.stopUntil) {
         return;
     }
 
-    // Baca semua data yang tersedia sekaligus
-    while (rs485Serial.available() > 0) {
+    // Baca data yang tersedia (tanpa while loop blocking)
+    int available = rs485Serial.available();
+    if (available <= 0) {
+        // Handle timeout hanya jika tidak ada data
+        if (rfidState.receiving && (millis() - rfidState.lastByteTime > TIMEOUT)) {
+            rfidState.receiving = false;
+            lastError = ErrorCode::RFID_TIMEOUT;
+            currentState = SystemState::ERROR;
+            lastStateChangeTime = millis();
+        }
+        return;
+    }
+
+    // Batasi jumlah data yang diproses dalam satu iterasi
+    int toRead = min(available, 16); // Baca maksimal 16 byte per iterasi
+    
+    for (int i = 0; i < toRead; i++) {
         char c = rs485Serial.read();
 
         // Filter karakter non-printable (kecuali STX/ETX)
@@ -24,29 +52,29 @@ void handleReadingRfidState() {
             continue;
         }
 
-        lastByteTime = millis();
+        rfidState.lastByteTime = millis();
 
         // Start of Text
         if (c == 0x02) {
-            receiving = true;
-            bufferIndex = 0;
-            buffer[0] = '\0'; // Reset buffer
+            rfidState.receiving = true;
+            rfidState.bufferIndex = 0;
+            rfidState.buffer[0] = '\0'; // Reset buffer
             continue;
         }
 
         // End of Text
-        if (c == 0x03 && receiving) {
-            receiving = false;
+        if (c == 0x03 && rfidState.receiving) {
+            rfidState.receiving = false;
             
             // Null terminate the buffer
-            if (bufferIndex < MAX_BUFFER_SIZE) {
-                buffer[bufferIndex] = '\0';
+            if (rfidState.bufferIndex < MAX_BUFFER_SIZE) {
+                rfidState.buffer[rfidState.bufferIndex] = '\0';
             } else {
-                buffer[MAX_BUFFER_SIZE] = '\0';
+                rfidState.buffer[MAX_BUFFER_SIZE] = '\0';
             }
             
             // Parse data
-            parseRS485Data(String(buffer));
+            parseRS485Data(String(rfidState.buffer));
 
             if (rs485Data.hasData) {
                 // Validasi weight dengan toleransi
@@ -73,36 +101,28 @@ void handleReadingRfidState() {
                 if (result == 0) {
                     sendingData = true;
                     currentState = SystemState::SENDING_DATA;
-                    stopUntil = millis() + 1500; // Stop membaca 1.5 detik
+                    rfidState.stopUntil = millis() + 1500; // Stop membaca 1.5 detik
                 } else {
                     startResponseDisplay(result);
                     currentState = SystemState::SENDING_DATA;
-                    stopUntil = millis() + 1000; // Stop membaca 1 detik untuk error
+                    rfidState.stopUntil = millis() + 1000; // Stop membaca 1 detik untuk error
                 }
             }
             continue;
         }
 
         // Data receiving
-        if (receiving) {
-            if (bufferIndex < MAX_BUFFER_SIZE) {
-                buffer[bufferIndex++] = c;
+        if (rfidState.receiving) {
+            if (rfidState.bufferIndex < MAX_BUFFER_SIZE) {
+                rfidState.buffer[rfidState.bufferIndex++] = c;
             } else {
                 // Buffer overflow
-                receiving = false;
+                rfidState.receiving = false;
                 lastError = ErrorCode::RFID_OVERFLOW;
                 currentState = SystemState::ERROR;
                 lastStateChangeTime = millis();
             }
         }
-    }
-
-    // Handle timeout
-    if (receiving && (millis() - lastByteTime > TIMEOUT)) {
-        receiving = false;
-        lastError = ErrorCode::RFID_TIMEOUT;
-        currentState = SystemState::ERROR;
-        lastStateChangeTime = millis();
     }
 
     yield();
@@ -178,27 +198,31 @@ void resetRFIDData(bool resetHardware) {
         rs485Serial.flush();
         digitalWrite(DE_RE_PIN, LOW);
     }
+    
+    // Reset state reader
+    rfidState.reset();
 }
 
+// Optimasi parsing dengan menghindari copy string
 void parseRS485Data(const String &data) {
     // Reset data pertama
     rs485Data.hasData = false;
     
-    // Parsing cepat dengan pointer
-    const char* str = data.c_str();
-    char* tokens[6]; // slave_id, id_driver, nama_driver, id_customer, no_polisi, nama_customer
-    uint8_t tokenCount = 0;
+    // Parsing langsung dari String tanpa copy
+    int startIndex = 0;
+    int commaIndex = data.indexOf(',');
+    int tokenCount = 0;
+    String tokens[6];
     
-    // Temporary buffer untuk parsing
-    char tempBuffer[129];
-    strncpy(tempBuffer, str, sizeof(tempBuffer) - 1);
-    tempBuffer[sizeof(tempBuffer) - 1] = '\0';
+    while (commaIndex >= 0 && tokenCount < 6) {
+        tokens[tokenCount++] = data.substring(startIndex, commaIndex);
+        startIndex = commaIndex + 1;
+        commaIndex = data.indexOf(',', startIndex);
+    }
     
-    // Tokenize
-    char* token = strtok(tempBuffer, ",");
-    while (token != NULL && tokenCount < 6) {
-        tokens[tokenCount++] = token;
-        token = strtok(NULL, ",");
+    // Ambil token terakhir
+    if (tokenCount < 6 && startIndex < data.length()) {
+        tokens[tokenCount++] = data.substring(startIndex);
     }
     
     // Validasi jumlah token
@@ -209,12 +233,12 @@ void parseRS485Data(const String &data) {
     }
     
     // Assign data dengan validasi
-    rs485Data.slave_id = String(tokens[0]);
-    rs485Data.id_driver = atoi(tokens[1]);
-    rs485Data.nama_driver = String(tokens[2]);
-    rs485Data.id_customer = atoi(tokens[3]);
-    rs485Data.no_polisi = String(tokens[4]);
-    rs485Data.nama_customer = String(tokens[5]);
+    rs485Data.slave_id = tokens[0];
+    rs485Data.id_driver = tokens[1].toInt();
+    rs485Data.nama_driver = tokens[2];
+    rs485Data.id_customer = tokens[3].toInt();
+    rs485Data.no_polisi = tokens[4];
+    rs485Data.nama_customer = tokens[5];
     rs485Data.hasData = true;
 }
 
@@ -240,9 +264,10 @@ void resetSystemForError() {
 }
 
 void handleRS485() {
-    // Bersihkan buffer RS485 jika penuh
+    // Bersihkan buffer RS485 jika penuh (non-blocking)
     if (rs485Serial.available() > 64) {
-        while (rs485Serial.available() > 0) {
+        int toClear = min(rs485Serial.available(), 32); // Bersihkan maksimal 32 byte per iterasi
+        for (int i = 0; i < toClear; i++) {
             rs485Serial.read();
         }
     }

@@ -85,7 +85,6 @@ void processHttpRequests() {
     const unsigned long RETRY_DELAY = 300;
     const int MAX_RETRY = 3;
 
-    // Tunggu sampai waktu retry berikutnya
     if (millis() - currentRequest.lastAttemptTime < RETRY_DELAY && currentRequest.lastAttemptTime != 0) {
         return;
     }
@@ -147,9 +146,8 @@ int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in) 
     int result = startSendDataIn(id_driver, id_customer, weight_in, time_in);
     if (result != 0) return result;
 
-    // Blocking wait untuk kompatibilitas
     unsigned long startTime = millis();
-    const unsigned long TIMEOUT = 10000; // 10 detik timeout
+    const unsigned long TIMEOUT = 10000;
 
     while (isHttpRequestInProgress() && (millis() - startTime < TIMEOUT)) {
         processHttpRequests();

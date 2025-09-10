@@ -2,13 +2,15 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-#include "WiFi.h"
 #include <HTTPClient.h>
 #include <U8g2lib.h>
 #include <Wire.h>
 #include "RTClib.h"
 #include "esp_task_wdt.h"
 #include <atomic>
+#include "WiFi.h"
+
+
 // rs485
 #define DE_RE_PIN 35
 #define RS485_RX_PIN 44
@@ -25,9 +27,6 @@
 #define IN_BUTTON 2
 #define RESET_BUTTON 42
 
-// Relay
-#define RELAY_CONTROL 20
-
 // Konstanta
 constexpr unsigned long RFID_TIMEOUT = 5000;
 constexpr unsigned long STATE_TIMEOUT = 60000;
@@ -35,11 +34,13 @@ constexpr unsigned long MENU_INTERVAL = 10;
 extern unsigned long lastReconnectAttempt;
 extern int wifiRetryCount;
 extern int wifiRetryLimit;
-constexpr unsigned long WIFI_CHECK_INTERVAL = 5000;
-constexpr unsigned long RECONNECT_INTERVAL = 30000;
-const unsigned long WIFI_CONNECTION_TIMEOUT = 30000;
 constexpr int MAX_RECONNECT_ATTEMPTS = 5;
 constexpr unsigned long ERROR_DISPLAY_DURATION = 2000;
+
+#define WIFI_SCAN_INTERVAL 30000
+
+// Watchdog timeout
+#define WATCHDOG_TIMEOUT 35 
 
 extern int lastButtonPressed;
 
@@ -62,15 +63,6 @@ enum SystemState {
     ERROR,
     SENDING_DATA
 };
-
-enum class WiFiState {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED,
-    FAILED
-};
-
-extern std::atomic<WiFiState> wifiState;
 
 constexpr int TIMEZONE_OFFSET_HOURS = 0;
 constexpr int TIME_ADJUST_MINUTES = 0;
@@ -109,7 +101,6 @@ extern int httpResponseCode;
 enum class ResponseState {
     NONE,
     SHOWING_RESPONSE,
-    ALARM_RESPONSE,
     COMPLETED
 };
 
@@ -123,24 +114,30 @@ enum HttpRequestType {
     WEIGHT_OUT
 };
 
-enum class RelayState {
-    IDLE,
-    SUCCESS_ON,
-    SUCCESS_OFF,
-    FAILURE_ON,
-    FAILURE_OFF,
-    COMPLETED
-};
-
 extern HttpStatus httpState;
 extern bool sendingData;
+
+enum WiFiState {
+    WIFI_DISCONNECTED,
+    WIFI_CONNECTING,
+    WIFI_CONNECTED,
+    WIFI_ERROR
+};
+
+extern WiFiState wifiState;
+
+extern unsigned long lastWifiAttempt;
+extern unsigned long lastWifiCheck;
+extern unsigned long wifiConnectStartTime;
+
+#define WIFI_CHECK_INTERVAL 2000   // Cek setiap 2 detik
+#define WIFI_RECONNECT_INTERVAL 10000 // Coba reconnect setiap 10 detik
+#define WIFI_CONNECT_TIMEOUT 30000
 
 // Deklarasi objek eksternal
 extern bool wifiNeedUpdate;
 extern U8G2_ST7920_128X64_F_SW_SPI u8g2;
 extern RTC_DS3231 rtc;
-extern const char* ssid;
-extern const char* password;
 extern HardwareSerial rs485Serial;
 extern HardwareSerial rs232Serial;
 extern RS485Data rs485Data;
@@ -153,8 +150,15 @@ extern float weight_out;
 extern String time_in;
 extern String time_out;
 
-// Deklarasi fungsi utama
-const char *getWifiStatusString(wl_status_t status);
+extern bool rtcInitialized;
+extern bool rtcAvailable;
+extern unsigned long lastRtcCheck;
+
+// Deklarasi fungsi
+void setupRTC();
+void updateRTC();
+String getCurrentTime();
+bool isRTCReady();
 
 bool isWiFiConnected();
 
@@ -172,7 +176,7 @@ void parseRS485Data(const String &data);
 
 void resetSystemForError();
 
-void setWifiNeedUpdate(bool state);
+// void setWifiNeedUpdate(bool state);
 
 const char *getQuickWifiStatus();
 
@@ -223,15 +227,5 @@ bool checkResetButton();
 bool checkSendInButton();
 
 bool checkSendOutButton();
-
-// void resetRFIDReading();
-
-// void setupRelay();
-
-// void handleRelay(int responseCode);
-
-// void updateRelay();
-
-// bool isRelayBusy();
 
 #endif

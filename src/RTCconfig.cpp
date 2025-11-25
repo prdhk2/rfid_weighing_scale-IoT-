@@ -17,7 +17,6 @@ void setupRTC() {
         Serial.println("RTC found and initialized");
         rtcInitialized = true;
         
-        // Set time jika RTC baru pertama kali (opsional)
         if (rtc.lostPower()) {
             Serial.println("RTC lost power, setting default time");
             rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -32,10 +31,8 @@ void setupRTC() {
 void updateRTC() {
     unsigned long currentMillis = millis();
     
-    // Jika RTC sudah initialized, tidak perlu melakukan apa-apa
     if (rtcInitialized) return;
     
-    // Coba ulang hanya pada interval tertentu
     if (currentMillis - lastRtcCheck >= RTC_RETRY_INTERVAL) {
         lastRtcCheck = currentMillis;
         
@@ -62,7 +59,6 @@ String getCurrentTime() {
                 now.hour(), now.minute(), now.second());
         return String(buffer);
     } else {
-        // Fallback ke software timer jika RTC tidak tersedia
         static unsigned long startupTime = millis();
         unsigned long elapsed = millis() - startupTime;
         

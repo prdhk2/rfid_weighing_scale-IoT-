@@ -1,8 +1,7 @@
 #include "config.h"
 
-// Struktur untuk mengelola state pembacaan RFID
 struct RFIDReaderState {
-    char buffer[129]; // Buffer statis (128 karakter + null terminator)
+    char buffer[129];
     uint8_t bufferIndex;
     bool receiving;
     unsigned long lastByteTime;
@@ -23,15 +22,12 @@ void handleReadingRfidState() {
     const unsigned long TIMEOUT = 1000;
     const uint8_t MAX_BUFFER_SIZE = 128;
 
-    // Skip jika dalam masa stop
     if (millis() < rfidState.stopUntil) {
         return;
     }
 
-    // Baca data yang tersedia (tanpa while loop blocking)
     int available = rs485Serial.available();
     if (available <= 0) {
-        // Handle timeout hanya jika tidak ada data
         if (rfidState.receiving && (millis() - rfidState.lastByteTime > TIMEOUT)) {
             rfidState.receiving = false;
             lastError = ErrorCode::RFID_TIMEOUT;
@@ -41,8 +37,8 @@ void handleReadingRfidState() {
         return;
     }
 
-    // Batasi jumlah data yang diproses dalam satu iterasi
-    int toRead = min(available, 16); // Baca maksimal 16 byte per iterasi
+    // Batas data yang diproses dalam satu iterasi
+    int toRead = min(available, 16); // maksimal 16 byte per iterasi
     
     for (int i = 0; i < toRead; i++) {
         char c = rs485Serial.read();
@@ -54,7 +50,6 @@ void handleReadingRfidState() {
 
         rfidState.lastByteTime = millis();
 
-        // Start of Text
         if (c == 0x02) {
             rfidState.receiving = true;
             rfidState.bufferIndex = 0;
@@ -77,7 +72,6 @@ void handleReadingRfidState() {
             parseRS485Data(String(rfidState.buffer));
 
             if (rs485Data.hasData) {
-                // Validasi weight dengan toleransi
                 if (isnan(lastWeight) || lastWeight <= 0.1) { // Tolerance 0.1 kg
                     lastError = ErrorCode::RFID_PARSE_ERROR;
                     currentState = SystemState::ERROR;
@@ -88,7 +82,6 @@ void handleReadingRfidState() {
                 String timestamp = getCurrentTime();
                 int result = -1;
 
-                // Process berdasarkan slave ID
                 if (rs485Data.slave_id == "1") {
                     weight_in = lastWeight;
                     result = startSendDataIn(rs485Data.id_driver, rs485Data.id_customer, weight_in, timestamp);
@@ -97,7 +90,6 @@ void handleReadingRfidState() {
                     result = startSendDataOut(rs485Data.id_driver, rs485Data.id_customer, weight_out, timestamp);
                 }
 
-                // Handle response
                 if (result == 0) {
                     sendingData = true;
                     currentState = SystemState::SENDING_DATA;
@@ -111,7 +103,6 @@ void handleReadingRfidState() {
             continue;
         }
 
-        // Data receiving
         if (rfidState.receiving) {
             if (rfidState.bufferIndex < MAX_BUFFER_SIZE) {
                 rfidState.buffer[rfidState.bufferIndex++] = c;
@@ -203,12 +194,10 @@ void resetRFIDData(bool resetHardware) {
     rfidState.reset();
 }
 
-// Optimasi parsing dengan menghindari copy string
 void parseRS485Data(const String &data) {
     // Reset data pertama
     rs485Data.hasData = false;
-    
-    // Parsing langsung dari String tanpa copy
+
     int startIndex = 0;
     int commaIndex = data.indexOf(',');
     int tokenCount = 0;
@@ -220,7 +209,6 @@ void parseRS485Data(const String &data) {
         commaIndex = data.indexOf(',', startIndex);
     }
     
-    // Ambil token terakhir
     if (tokenCount < 6 && startIndex < data.length()) {
         tokens[tokenCount++] = data.substring(startIndex);
     }
@@ -232,7 +220,6 @@ void parseRS485Data(const String &data) {
         return;
     }
     
-    // Assign data dengan validasi
     rs485Data.slave_id = tokens[0];
     rs485Data.id_driver = tokens[1].toInt();
     rs485Data.nama_driver = tokens[2];
@@ -264,15 +251,13 @@ void resetSystemForError() {
 }
 
 void handleRS485() {
-    // Bersihkan buffer RS485 jika penuh (non-blocking)
     if (rs485Serial.available() > 64) {
-        int toClear = min(rs485Serial.available(), 32); // Bersihkan maksimal 32 byte per iterasi
+        int toClear = min(rs485Serial.available(), 32);
         for (int i = 0; i < toClear; i++) {
             rs485Serial.read();
         }
     }
     
-    // Handle state reading RFID
     if (currentState == SystemState::READING_RFID) {
         handleReadingRfidState();
     }

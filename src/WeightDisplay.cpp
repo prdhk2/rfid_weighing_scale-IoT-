@@ -143,12 +143,12 @@ bool checkResetButton() {
         if (currentRead == LOW) {
             Serial.println(F("Reset button pressed"));
             currentState = HOME;
-            resetButton.lastButtonState = currentRead; // Perbaikan
+            resetButton.lastButtonState = currentRead;
             return true;
         }
     }
 
-    resetButton.lastButtonState = currentRead; // Perbaikan
+    resetButton.lastButtonState = currentRead;
     return false;
 }
 
@@ -158,14 +158,12 @@ bool checkSendInButton() {
 
     bool currentRead = digitalRead(IN_BUTTON);
 
-    // Jika ada perubahan pembacaan tombol
     if (currentRead != lastPhysicalRead) {
         lastDebounceTime = millis();
     }
 
     if ((millis() - lastDebounceTime) > 50) { // debounce 50ms
         if (currentRead == LOW && httpState == HTTP_IDLE) {
-            // Tombol baru saja ditekan
             Serial.println("Tombol 'Masuk' ditekan, mengirim data IN...");
 
             String timestamp = getCurrentTime();

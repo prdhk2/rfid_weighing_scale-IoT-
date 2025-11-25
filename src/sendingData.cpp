@@ -1,15 +1,13 @@
 #include "config.h"
 
-const char* apiWeightInUrl = "http://103.82.241.190/api/weightDataIn";
-const char* apiWeightOutUrl = "http://103.82.241.190/api/weightDataOut";
+const char* apiWeightInUrl = "http://***/api/weightDataIn";
+const char* apiWeightOutUrl = "http://***/api/weightDataOut";
 
-// Variabel global untuk state management
 HttpRequestData currentRequest;
 HttpRequestType currentRequestType = NONE;
 WiFiClient client;
 HTTPClient http;
 
-// Pool untuk JSON data (mengurangi alokasi memori)
 char jsonBuffer[256];
 
 void initHttpRequest() {
@@ -22,15 +20,14 @@ void initHttpRequest() {
 int startSendDataIn(int id_driver, int id_customer, float weight_in, String time_in) {
     if (currentRequest.inProgress) {
         Serial.println("Request already in progress");
-        return -98; // Request sedang berjalan
+        return -98;
     }
 
-    if (!isWiFiConnected()) { // ← Gunakan fungsi cepat
+    if (!isWiFiConnected()) {
         Serial.printf("WiFi not connected | Status: %d\n", WiFi.status());
         return -99;
     }
 
-    // Format JSON dengan buffer statis
     snprintf(jsonBuffer, sizeof(jsonBuffer),
         "{\"driver_id\":%d,\"customer_id\":%d,\"weight_in\":%.2f,\"time_in\":\"%s\"}",
         id_driver, id_customer, weight_in, time_in.c_str());
@@ -41,12 +38,12 @@ int startSendDataIn(int id_driver, int id_customer, float weight_in, String time
     currentRequest.httpResponseCode = -1;
     currentRequest.inProgress = true;
     currentRequestType = WEIGHT_IN;
-    currentRequest.lastAttemptTime = 0; // Segera proses
+    currentRequest.lastAttemptTime = 0;
 
     Serial.println("Starting non-blocking sendDataIn");
     Serial.println("Payload: " + String(jsonBuffer));
 
-    return 0; // Started successfully
+    return 0;
 }
 
 int startSendDataOut(int id_driver, int id_customer, float weight_out, String time_out) {
@@ -55,12 +52,11 @@ int startSendDataOut(int id_driver, int id_customer, float weight_out, String ti
         return -98;
     }
 
-    if (!isWiFiConnected()) { // ← Gunakan fungsi cepat
+    if (!isWiFiConnected()) {
         Serial.printf("WiFi not connected | Status: %d\n", WiFi.status());
         return -99;
     }
 
-    // Format JSON dengan buffer statis
     snprintf(jsonBuffer, sizeof(jsonBuffer),
         "{\"driver_id\":%d,\"customer_id\":%d,\"weight_out\":%.2f,\"time_out\":\"%s\"}",
         id_driver, id_customer, weight_out, time_out.c_str());
@@ -89,14 +85,13 @@ void processHttpRequests() {
         return;
     }
 
-    // Setup HTTP connection jika pertama kali
     if (currentRequest.lastAttemptTime == 0) {
         http.begin(client, currentRequest.url);
         http.setTimeout(5000);
         http.addHeader("Content-Type", "application/json");
     }
 
-    // Lakukan request HTTP
+    // request HTTP
     currentRequest.httpResponseCode = http.POST(currentRequest.jsonData);
     currentRequest.lastAttemptTime = millis();
     currentRequest.retryCount++;
@@ -124,7 +119,7 @@ void finishHttpRequest() {
     
     if (currentRequestType != NONE) {
         httpResponseCode = currentRequest.httpResponseCode;
-        lastHttpResponseCode = httpResponseCode; // Simpan untuk display
+        lastHttpResponseCode = httpResponseCode; // Simpan untuk displa
         currentRequestType = NONE;
         
         // Trigger response display
@@ -141,7 +136,6 @@ int getCurrentHttpResponse() {
     return currentRequest.httpResponseCode;
 }
 
-// Fungsi kompatibilitas (untuk kode yang sudah ada)
 int sendDataIn(int id_driver, int id_customer, float weight_in, String time_in) {
     int result = startSendDataIn(id_driver, id_customer, weight_in, time_in);
     if (result != 0) return result;
@@ -168,7 +162,6 @@ int sendDataOut(int id_driver, int id_customer, float weight_out, String time_ou
     int result = startSendDataOut(id_driver, id_customer, weight_out, time_out);
     if (result != 0) return result;
 
-    // Blocking wait untuk kompatibilitas
     unsigned long startTime = millis();
     const unsigned long TIMEOUT = 10000;
 

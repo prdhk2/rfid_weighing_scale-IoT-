@@ -13,12 +13,10 @@ bool inButtonPressed = false;
 bool inButtonHandled = false;
 const unsigned long debounceDelay = 50;
 
-// Variabel untuk optimasi display
 unsigned long lastDisplayUpdate = 0;
 #define DISPLAY_UPDATE_INTERVAL 100 // Update display setiap 100ms
 
 void handleHomeState() {
-    // Update display hanya periodik (bukan setiap loop)
     if (millis() - lastDisplayUpdate >= DISPLAY_UPDATE_INTERVAL) {
         lastDisplayUpdate = millis();
         HomeDisplay();
@@ -26,15 +24,13 @@ void handleHomeState() {
     
     handleTimeAdjustment();
     
-    // Debug info hanya periodik
     static unsigned long lastSerialCheck = 0;
-    if (millis() - lastSerialCheck > 5000) { // Setiap 5 detik
+    if (millis() - lastSerialCheck > 5000) { // 5 detik
         lastSerialCheck = millis();
         Serial.printf("Free Heap: %d bytes | RS485: %d\n", 
                      ESP.getFreeHeap(), rs485Serial.available());
     }
     
-    // Deteksi RS485 data (non-blocking)
     if (rs485Serial.available() > 0) {
         currentState = SystemState::READING_RFID;
         lastStateChangeTime = millis();
@@ -70,10 +66,8 @@ void HomeDisplay() {
     char dateStr[12];
     snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%04d", now.day(), now.month(), now.year());
 
-    // Dapatkan status WiFi secara cepat (cached)
     const char* wifiStatus = getQuickWifiStatus();
 
-    // Render display
     u8g2.clearBuffer();
     u8g2.setDrawColor(1);
 

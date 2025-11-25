@@ -16,7 +16,6 @@ void drawCenteredPStr(u8g2_uint_t y, const char* pstr) {
     u8g2.print(buffer);
 }
 
-// Fungsi untuk menampilkan response (non-blocking)
 void handleResponseDisplay() {
     if (responseState != ResponseState::SHOWING_RESPONSE) {
         return;
@@ -24,12 +23,10 @@ void handleResponseDisplay() {
 
     const unsigned long DISPLAY_DURATION = 3000; // 3 detik
 
-    // Tampilkan response untuk pertama kali
     if (responseStartTime > 0 && millis() - responseStartTime == 0) {
         showResponseScreen(lastHttpResponseCode);
     }
 
-    // Cek jika waktu display sudah selesai
     if (millis() - responseStartTime >= DISPLAY_DURATION) {
         responseState = ResponseState::COMPLETED;
         responseStartTime = 0;
@@ -39,7 +36,6 @@ void handleResponseDisplay() {
         return;
     }
 
-    // Refresh display secara periodic (opsional)
     static unsigned long lastRefresh = 0;
     if (millis() - lastRefresh >= 500) {
         lastRefresh = millis();
@@ -47,15 +43,13 @@ void handleResponseDisplay() {
     }
 }
 
-// Fungsi untuk menampilkan layar response
 void showResponseScreen(int16_t responseCode) {
     static const char successMsg[] PROGMEM = "Data Terkirim!";
     static const char failMsg[] PROGMEM = "Gagal!";
     static const char codePrefix[] PROGMEM = "Kode: ";
 
     u8g2.clearBuffer();
-
-    // Gambar kotak respon
+    // box response
     u8g2.setDrawColor(0);
     u8g2.drawBox(0, 20, 128, 30);
     u8g2.setDrawColor(1);
@@ -111,7 +105,6 @@ void handleSendingDataState() {
         return;
     }
 
-    // Jika response display selesai
     if (responseState == ResponseState::COMPLETED) {
         currentState = SystemState::WEIGHT_DISPLAY;
         responseState = ResponseState::NONE;

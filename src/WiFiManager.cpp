@@ -7,8 +7,8 @@ unsigned long wifiConnectStartTime = 0;
 int wifiRetryCount = 0;
 const int MAX_RETRIES = 3;
 
-const char* ssid = "Biodigester2025"; // Ganti dengan SSID Anda
-const char* password = "z3r0w4sTe###"; // Ganti dengan password Anda
+const char* ssid = "#";
+const char* password = "###";
 
 void setupWiFi() {
     Serial.println("Initializing WiFi...");
@@ -16,10 +16,9 @@ void setupWiFi() {
     WiFi.setAutoReconnect(false); 
     WiFi.persistent(false); 
     
-    // Panggil WiFi.begin() hanya sekali di setup
     WiFi.begin(ssid, password);
     
-    wifiState = WIFI_CONNECTING; // Langsung masuk ke state connecting
+    wifiState = WIFI_CONNECTING;
     lastWifiAttempt = millis();
     lastWifiCheck = millis();
 }
@@ -35,7 +34,7 @@ void handleWiFi() {
                 Serial.print("WiFi connected! IP: ");
                 Serial.println(WiFi.localIP());
             } else if (now - wifiConnectStartTime > WIFI_CONNECT_TIMEOUT) {
-                Serial.println("WiFi connection timeout. Retrying...");
+                // Serial.println("WiFi connection timeout. Retrying...");
                 WiFi.disconnect(true);
                 wifiState = WIFI_DISCONNECTED;
                 lastWifiAttempt = now;
@@ -45,7 +44,7 @@ void handleWiFi() {
         case WIFI_DISCONNECTED:
         
             if (now - lastWifiAttempt >= WIFI_RECONNECT_INTERVAL) {
-                Serial.println("Attempting WiFi connection...");
+                // Serial.println("Attempting WiFi connection...");
                 WiFi.begin(ssid, password);
                 wifiState = WIFI_CONNECTING;
                 wifiConnectStartTime = now;
@@ -56,7 +55,7 @@ void handleWiFi() {
         case WIFI_CONNECTED:
         
             if (currentStatus != WL_CONNECTED) {
-                Serial.println("WiFi disconnected unexpectedly. Reconnecting...");
+                // Serial.println("WiFi disconnected unexpectedly. Reconnecting...");
                 wifiState = WIFI_DISCONNECTED;
                 lastWifiAttempt = now;
             } else {

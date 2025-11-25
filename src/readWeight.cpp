@@ -35,7 +35,7 @@ float readWeight() {
 
     while (rs232Serial.available()) {
         char c = rs232Serial.read();
-        if (c == '\n') { // Akhir data dari timbangan
+        if (c == '\n') {
             String numericPart = extractNumericPart(buffer);
             buffer = "";  // Reset
             if (numericPart.length() > 0) {
@@ -44,11 +44,11 @@ float readWeight() {
                 return NAN;
             }
         } 
-        else if (buffer.length() < 20) { // Hindari buffer overflow
+        else if (buffer.length() < 20) {
             buffer += c;
         } 
         else {
-            buffer = ""; // Reset jika terlalu panjang
+            buffer = "";
         }
     }
     return lastWeight;

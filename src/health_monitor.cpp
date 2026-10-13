@@ -7,6 +7,7 @@
 #include <esp_task_wdt.h>
 
 #include "config.h"
+#include "elapsed.h"
 #include "mqtt_client.h"
 #include "net_supervisor_logic.h"
 #include "network_service.h"
@@ -206,14 +207,16 @@ void updateHealthMonitor(uint32_t now, bool idle) {
     maxWait = restartMaxWaitMs;
     portEXIT_CRITICAL(&restartLock);
 
-    const bool timedOut = now - requestedAt >= maxWait;
+    // requestedAt comes from the MQTT task and can be a moment after `now`.
+    const bool timedOut = elapsedMs(now, requestedAt) >= maxWait;
     if (idle || timedOut) restartNow(reason, otaVersion, !idle);
     return;  // the supervisor has nothing to add while a restart is pending
   }
 
   if (!Config::mqttConfigured() || !Config::wifiConfigured()) return;
 
-  const uint32_t offlineMs = now - lastMqttHealthyMs;
+  // Stamped by the MQTT task, possibly after this pass captured `now`.
+  const uint32_t offlineMs = elapsedMs(now, lastMqttHealthyMs);
 
   // Early warning, once a minute: the numbers that predict the next failure
   // (shrinking largest heap block = TLS will soon fail; low stack headroom =

@@ -52,8 +52,8 @@ void test_lcd_texts_fit_the_display() {
                          Verdict::AUTH, Verdict::SERVER_ERROR, Verdict::TRANSPORT, Verdict::NO_WIFI};
   for (Verdict v : all) {
     TEST_ASSERT_TRUE(strlen(HttpOutcome::lcdTitle(v)) <= 14);   // helvB12 across 128 px
-    TEST_ASSERT_TRUE(strlen(HttpOutcome::lcdDetail(v, false)) <= 21);  // 6x10 font
-    TEST_ASSERT_TRUE(strlen(HttpOutcome::lcdDetail(v, true)) <= 21);
+    TEST_ASSERT_TRUE(strlen(HttpOutcome::lcdDetail(v, false)) <= 20);  // 6x10 inside a 122 px frame
+    TEST_ASSERT_TRUE(strlen(HttpOutcome::lcdDetail(v, true)) <= 20);
     TEST_ASSERT_TRUE(strlen(HttpOutcome::lcdDetail(v, true)) > 0);
   }
 }

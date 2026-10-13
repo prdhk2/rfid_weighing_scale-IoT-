@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "debug_log.h"
+#include "elapsed.h"
 #include "line_assembler.h"
 #include "weight_parser.h"
 
@@ -82,6 +83,7 @@ void updateScale(uint32_t now) {
 
     if (ok && !scaleAnnounced) {
       scaleAnnounced = true;
+      scaleWasLive = true;  // the first reading is not a "resumed" event
       logf("[SCALE] first reading: %.2f kg", static_cast<double>(kg));
     }
   }
@@ -101,12 +103,10 @@ ScaleSnapshot scaleSnapshot(uint32_t now) {
   portENTER_CRITICAL(&mux);
   s.everReceived = scaleEver;
   s.weightKg = scaleWeight;
-  s.ageMs = scaleEver ? now - scaleLastMs : UINT32_MAX;
+  s.ageMs = scaleEver ? elapsedMs(now, scaleLastMs) : UINT32_MAX;
   s.frames = scaleFrames;
   s.rejected = scaleRejected;
   portEXIT_CRITICAL(&mux);
-  // Another task's `now` may be a moment older than the loop's last reading.
-  if (s.everReceived && static_cast<int32_t>(s.ageMs) < 0) s.ageMs = 0;
   s.live = s.everReceived && s.ageMs < Config::SCALE_STALE_MS;
   return s;
 }
@@ -194,9 +194,8 @@ RfidSnapshot rfidSnapshot(uint32_t now) {
   portENTER_CRITICAL(&mux);
   s.cards = rfidCards;
   s.rejected = rfidRejected;
-  s.lastCardAgeMs = rfidEverCard ? now - rfidLastCardMs : UINT32_MAX;
+  s.lastCardAgeMs = rfidEverCard ? elapsedMs(now, rfidLastCardMs) : UINT32_MAX;
   portEXIT_CRITICAL(&mux);
-  if (rfidEverCard && static_cast<int32_t>(s.lastCardAgeMs) < 0) s.lastCardAgeMs = 0;
   return s;
 }
 

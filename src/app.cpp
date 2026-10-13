@@ -6,6 +6,7 @@
 #include "clock.h"
 #include "config.h"
 #include "debug_log.h"
+#include "elapsed.h"
 #include "health_monitor.h"
 #include "network_service.h"
 #include "ota_manager.h"
@@ -449,6 +450,6 @@ AppStatus appStatus() {
   AppStatus copy = status;
   const uint32_t sentAt = lastSendAtMs;
   portEXIT_CRITICAL(&statusMux);
-  copy.lastSendAgeMs = copy.lastSendValid ? millis() - sentAt : UINT32_MAX;
+  copy.lastSendAgeMs = copy.lastSendValid ? elapsedMs(millis(), sentAt) : UINT32_MAX;
   return copy;
 }

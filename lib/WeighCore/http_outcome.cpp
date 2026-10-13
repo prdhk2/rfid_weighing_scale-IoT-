@@ -64,7 +64,7 @@ const char *lcdTitle(Verdict verdict) {
 
 const char *lcdDetail(Verdict verdict, bool outbound) {
   switch (verdict) {
-    case Verdict::OK: return outbound ? "Data keluar tersimpan" : "Data masuk tersimpan";
+    case Verdict::OK: return outbound ? "Keluar tersimpan" : "Masuk tersimpan";
     case Verdict::DUPLICATE: return "Data sama < 1 menit";
     case Verdict::NOT_FOUND: return outbound ? "Data masuk tdk ada" : "Driver/cust tdk ada";
     case Verdict::REJECTED: return "Data ditolak server";

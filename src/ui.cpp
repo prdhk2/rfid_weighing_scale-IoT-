@@ -120,9 +120,15 @@ void uiWeight(const RfidFrame::Card &card, bool weightLive, float weightKg) {
   char weightStr[16];
   if (weightLive) snprintf(weightStr, sizeof(weightStr), "%.2f", static_cast<double>(weightKg));
   else strcpy(weightStr, "N/A");
-  // Right-aligned against "/Kg" so a 5-digit truck weight never overlaps it.
-  int x = 103 - static_cast<int>(lcd.getStrWidth(weightStr));
-  lcd.drawStr(x < 46 ? 46 : x, 53, weightStr);
+  // Right-aligned against "/Kg" (x 105). Up to 99999.99 kg fits with two
+  // decimals; anything wider drops them rather than running into "/Kg".
+  constexpr int WEIGHT_RIGHT = 103;
+  constexpr int WEIGHT_LEFT = 46;
+  if (weightLive && static_cast<int>(lcd.getStrWidth(weightStr)) > WEIGHT_RIGHT - WEIGHT_LEFT) {
+    snprintf(weightStr, sizeof(weightStr), "%.0f", static_cast<double>(weightKg));
+  }
+  int x = WEIGHT_RIGHT - static_cast<int>(lcd.getStrWidth(weightStr));
+  lcd.drawStr(x < WEIGHT_LEFT ? WEIGHT_LEFT : x, 53, weightStr);
 
   lcd.setFont(u8g2_font_5x7_tr);
   if (card.direction == RfidFrame::Direction::IN) {

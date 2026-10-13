@@ -122,7 +122,7 @@ constexpr char DEVICE_ID[] = "depok-truk-01";
 // any other site is refused. Must match config/fleet.php on the server.
 constexpr char SITE[] = "depok_truk";
 
-constexpr char FIRMWARE_VERSION[] = "3.0.0";
+constexpr char FIRMWARE_VERSION[] = "3.0.1";
 
 constexpr char NTP_SERVER_1[] = "pool.ntp.org";
 constexpr char NTP_SERVER_2[] = "time.google.com";

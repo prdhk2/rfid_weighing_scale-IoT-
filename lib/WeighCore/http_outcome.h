@@ -42,7 +42,8 @@ bool retrySafe(int code);
 
 const char *verdictName(Verdict verdict);
 
-// Short operator-facing texts for the 128x64 LCD (<= 21 characters).
+// Short operator-facing texts for the 128x64 LCD. detail must stay <= 20
+// characters: the result screen draws it inside a frame 122 px wide (6x10 font).
 // title: large first line; detail: what it means. outbound: the upload was a
 // weigh-out (data keluar) - a 404 means something different there.
 const char *lcdTitle(Verdict verdict);

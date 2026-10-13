@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "debug_log.h"
+#include "elapsed.h"
 #include "network_service.h"
 
 namespace {
@@ -154,7 +155,8 @@ void updateClock(uint32_t now) {
 
   syncRtcFromNtp(now);
 
-  if (!refreshedOnce || now - lastRefreshMs >= REFRESH_MS) {
+  // clockTimestamp() stamps a fresh millis(), which may be after `now`.
+  if (!refreshedOnce || elapsedMs(now, lastRefreshMs) >= REFRESH_MS) {
     lastRefreshMs = now;
     refreshedOnce = true;
     refresh();

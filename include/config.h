@@ -84,7 +84,9 @@ constexpr char WIFI_PASSWORD[] = DP_WIFI_PASS;
 #else
 constexpr char WIFI_PASSWORD[] = "";
 #endif
-constexpr uint32_t WIFI_RETRY_MS = 10000;
+// A fresh WiFi.begin() only after this long without a connection; the core's
+// auto-reconnect works in between. Shorter cuts slow (weak-signal) attempts off.
+constexpr uint32_t WIFI_RETRY_MS = 30000;
 
 // Base of every upload; https:// is verified against ISRG Root X1. The server
 // redirects plain http:// to https://, and a redirected POST is a failure.
